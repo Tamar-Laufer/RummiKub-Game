@@ -54,7 +54,7 @@
 │   │  — ממשק (DOM) —
 │   ├── game-main.js        # נקודת הכניסה: אתחול, כפתורים, תזמון
 │   ├── game-render.js      # ציור אבנים, לוח ויד
-│   ├── game-board.js       # בניית הלוח 5×22, גרירה ושחרור
+│   ├── game-board.js       # בניית הלוח 7×22, גרירה ושחרור
 │   ├── game-ui.js          # אינדיקטור תור, מונים, חלון הודעה
 │   │  — אחר —
 │   ├── game.js             # גרסה ישנה של כל המשחק בקובץ אחד. לא נטען מאף דף (קוד מת)
@@ -66,8 +66,9 @@
 └── CLAUDE.md
 ```
 - **אין `index.html`.** נקודת הכניסה היא `html/contat.html` (כניסה), משם `home.html`, ומשם `game.html`. אפשר גם לפתוח ישר את `html/game.html` (דרך שרת).
+- **הלוח: 7 שורות × 22 עמודות** (`BOARD_ROWS` ב־`game-logic.js` + `grid-template-rows` ב־`css/game.css`, חייבים להתאים). נמדד בבוט: ה־AI אף פעם לא צריך יותר מ־7 שורות, גם כשכל 104 האבנים על השולחן. אבנים על הלוח 40×58, אבנים במגש 50×70. הלוח נכנס בלי גלילה מגובה חלון של ~617px.
 - **ה־AI של המחשב:** `computerTurn` קורא ל־`applyComputerMove`, כלומר ל־AI ב־`js/ai.js`. זה ה־AI היחיד. המשחק לא פונה יותר לשרת Python.
-- **מצב המשחק** הוא אובייקט אחד `state` שנוצר ב־`createGame()`: `remainingDeck`, `playerCards`, `computerCards`, `gameBoard` (5×22, `null` = תא ריק), `isPlayerTurn`, ו־`savedBoard`/`savedPlayer` (תמונת מצב מתחילת התור, בשביל "Try Again"). אבן = `[color, number]`, למשל `['red', 7]`. קבצי הממשק מקבלים את `state` כפרמטר.
+- **מצב המשחק** הוא אובייקט אחד `state` שנוצר ב־`createGame()`: `remainingDeck`, `playerCards`, `computerCards`, `gameBoard` (7×22, `null` = תא ריק), `isPlayerTurn`, ו־`savedBoard`/`savedPlayer` (תמונת מצב מתחילת התור, בשביל "Try Again"). אבן = `[color, number]`, למשל `['red', 7]`. קבצי הממשק מקבלים את `state` כפרמטר.
 - **מול מבנה היעד:** `tiles.js`, `rules.js` ו־`ai.js` כבר במקומם. `game-logic.js` הוא ה־`game.js` של היעד (השם עדיין תפוס על ידי הקובץ הישן). ארבעת קבצי ה־`game-*.js` של הממשק הם ה־`ui.js` + `main.js` של היעד.
 
 ### מבנה היעד שאליו נתקדם בהדרגה

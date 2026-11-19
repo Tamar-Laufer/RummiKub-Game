@@ -3,7 +3,9 @@ import { shuffledDeck, drawCards } from './tiles.js';
 import { isBoardValid } from './rules.js';
 import { matrixGreedyFindSets, fitMoveOnBoard } from './ai.js';
 
-export const BOARD_ROWS = 5;
+// 7 rows: measured with the bot, the AI never needs more (even with all 104 tiles on
+// the board). Must match grid-template-rows in css/game.css.
+export const BOARD_ROWS = 7;
 export const BOARD_COLS = 22;
 
 export function emptyBoard() {
@@ -19,7 +21,7 @@ export function createGame(random = Math.random, options = {}) {
         remainingDeck,
         playerCards:   drawCards(remainingDeck, 14),   // the human player's tray
         computerCards: drawCards(remainingDeck, 14),
-        gameBoard:     emptyBoard(),                    // 5×22, null = empty cell
+        gameBoard:     emptyBoard(),                    // 7×22, null = empty cell
         isPlayerTurn:  true,
         // Snapshot from the start of the player's turn — restored when the move is invalid
         savedBoard:  null,

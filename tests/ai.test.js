@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, applyComputerMove, boardCardsOf, BOARD_ROWS, BOARD_COLS } from '../js/game-logic.js';
-import { fitMoveOnBoard } from '../js/ai.js';
+import { fitMoveOnBoard, matrixGreedyFindSets } from '../js/ai.js';
+import { FULL_DECK } from '../js/tiles.js';
 
 // Short tile notation, same as the playtest report: R=red K=black B=blue O=orange
 const COLOR = { R: 'red', K: 'black', B: 'blue', O: 'orange' };
@@ -40,6 +41,13 @@ test('computer move never loses tiles (playtest seed 2, turn 86: board almost fu
     assert.equal(after.length, before.length,
         `${before.length - after.length} tiles disappeared (computer hand + board + deck)`);
     assert.deepEqual(after, before);
+});
+
+test('the board is big enough for the AI to lay out all 104 tiles', () => {
+    // Measured: the AI needs at most 7 rows, even with every tile on the board
+    const deck = [...FULL_DECK];
+    const move = fitMoveOnBoard(deck, [], matrixGreedyFindSets(deck, []).sets, BOARD_ROWS, BOARD_COLS);
+    assert.deepEqual(move.remainingHand, [], 'every tile should be placed, none held back for lack of room');
 });
 
 // ─── Safety net (fitMoveOnBoard) on a tiny 1×22 board: 5 sets of 3 fit in a row, 6 do not ──

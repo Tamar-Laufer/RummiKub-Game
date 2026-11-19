@@ -47,7 +47,7 @@ function makeCellDroppable(state, cell, row, col) {
     });
 }
 
-// ─── Build the 5×22 game board ────────────────────────────────────────────────
+// ─── Build the game board (BOARD_ROWS × BOARD_COLS) ──────────────────────────
 export function setupBoard(state) {
     const existing = document.querySelector('.game-board');
     if (existing) existing.remove();
