@@ -9,6 +9,7 @@
 // (the same game-logic.js functions the browser calls). The Python AI is not tested.
 //
 // Options: --games N  --seed S  --max-turns T (300)  --slow-ms (1000)  --hang-ms (5000)  --verbose
+//          --dump-turn N   print the state before turn N as JSON (for writing a regression test)
 
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { performance } from 'node:perf_hooks';
@@ -266,6 +267,13 @@ function playGame(seed, opts, heartbeat) {
             deck: [...state.remainingDeck], board: state.gameBoard.map(row => [...row]),
         };
         heartbeat(turn, actor, state);
+        if (opts.dumpTurn === turn)
+            console.log(`DUMP seed ${seed}, state before turn ${turn} (${actor}):\n` + JSON.stringify({
+                playerCards: state.playerCards.map(showTile).join(' '),
+                computerCards: state.computerCards.map(showTile).join(' '),
+                boardCards: boardCardsOf(state.gameBoard).map(showTile).join(' '),
+                remainingDeck: state.remainingDeck.map(showTile).join(' '),
+            }, null, 1));
 
         let outcome;
         if (actor === 'player') {
@@ -342,9 +350,10 @@ function workerMain() {
 // ═══ Main thread: runs the worker, watches for hangs, prints the report ═════
 
 function parseArgs(argv) {
-    const opts = { games: 500, seed: 1, maxTurns: 300, slowMs: 1000, hangMs: 5000, verbose: false };
+    const opts = { games: 500, seed: 1, maxTurns: 300, slowMs: 1000, hangMs: 5000, verbose: false, dumpTurn: null };
     const numeric = { '--games': 'games', '--seed': 'seed', '--max-turns': 'maxTurns',
-                      '--slow-ms': 'slowMs', '--hang-ms': 'hangMs' };
+                      '--slow-ms': 'slowMs', '--hang-ms': 'hangMs',
+                      '--dump-turn': 'dumpTurn' };   // print the state before turn N (use with --games 1)
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === '--verbose') opts.verbose = true;
         else if (numeric[argv[i]] && Number.isFinite(Number(argv[i + 1]))) opts[numeric[argv[i]]] = Number(argv[++i]);
