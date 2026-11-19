@@ -227,8 +227,18 @@ function checkTurn(before, state, actor, outcome, opened, report) {
         report('other-hand-changed', `the ${actor}'s turn changed the other player's hand`);
 
     // 5. The turn really passed to the other player
-    if (outcome === 'ok' && state.isPlayerTurn !== (actor === 'computer'))
+    if ((outcome === 'ok' || outcome === 'passed') && state.isPlayerTurn !== (actor === 'computer'))
         report('turn-not-passed', `after the ${actor}'s turn, isPlayerTurn is ${state.isPlayerTurn}`);
+}
+
+// A blocked game may end only with an empty deck, and the lowest hand must win
+function checkBlockedEnd(state, report) {
+    const player = points(state.playerCards), computer = points(state.computerCards);
+    const expected = player < computer ? 'player' : computer < player ? 'computer' : 'tie';
+    if (state.remainingDeck.length > 0)
+        report('wrong-game-over', `blocked game ended with ${state.remainingDeck.length} tiles still in the deck`);
+    if (state.winner !== expected)
+        report('wrong-game-over', `winner is '${state.winner}' but hands are player ${player} / computer ${computer}`);
 }
 
 // ═══ One full game ════════════════════════════════════════════════════════════
@@ -237,7 +247,7 @@ function playGame(seed, opts, heartbeat) {
     const state  = createGame(seededRandom(seed));
     const opened = { player: false, computer: false };
     const problems = {};   // type → { count, turns, first }
-    const stats = { aiCalls: 0, aiMsTotal: 0, aiMsMax: 0, botPlays: 0, botDraws: 0, botNoRoom: 0,
+    const stats = { aiCalls: 0, aiMsTotal: 0, aiMsMax: 0, botPlays: 0, botDraws: 0, botPasses: 0, botNoRoom: 0,
                     computerPlays: 0, computerDraws: 0, computerPasses: 0 };
 
     const finish = (outcome, turns, message = null) =>
@@ -270,8 +280,9 @@ function playGame(seed, opts, heartbeat) {
                     outcome = playerDraw(state);
                 }
             } else {
-                stats.botDraws++;
                 outcome = playerDraw(state);
+                if (outcome === 'ok') stats.botDraws++;
+                else stats.botPasses++;
             }
             if (outcome === 'deck-empty')
                 return finish('stuck-player-cannot-move', turn,
@@ -295,6 +306,10 @@ function playGame(seed, opts, heartbeat) {
 
         checkTurn(before, state, actor, outcome, opened, report);
         if (outcome === 'player-won' || outcome === 'computer-won') return finish(outcome, turn);
+        if (outcome === 'game-over') {
+            checkBlockedEnd(state, report);
+            return finish(`game-over-${state.winner}`, turn);
+        }
     }
     return finish('stuck-max-turns', opts.maxTurns, `The game did not end after ${opts.maxTurns} turns.`);
 }
@@ -378,6 +393,9 @@ function runWorker(opts, from, results) {
 const OUTCOMES = {
     'computer-won':             'Computer won',
     'player-won':               'Bot (player) won',
+    'game-over-computer':       'Blocked game (deck empty), computer had the lower hand',
+    'game-over-player':         'Blocked game (deck empty), bot had the lower hand',
+    'game-over-tie':            'Blocked game (deck empty), tie',
     'stuck-player-cannot-move': 'STUCK: deck empty, player cannot move',
     'stuck-max-turns':          'STUCK: no winner after max turns',
     'hang':                     'HANG: AI did not answer (infinite loop?)',
@@ -393,7 +411,11 @@ const PROBLEMS = {
     'turn-not-passed':          'Turn did not pass to the other player',
     'ai-slow':                  'AI took longer than --slow-ms',
     'bot-move-rejected':        "Game rejected the bot's (valid) move",
+    'wrong-game-over':          'Blocked game ended wrongly (deck not empty / wrong winner)',
 };
+
+// Outcomes where the game reached a proper end
+const endedNormally = outcome => outcome.endsWith('-won') || outcome.startsWith('game-over-');
 
 function printState(s, indent = '      ') {
     if (!s) return;
@@ -416,7 +438,7 @@ function printReport(opts, results, ms) {
         const n = results.filter(r => r.outcome === key).length;
         if (n || !key.startsWith('stuck-max')) line(label, n);
     }
-    const ok = results.filter(r => r.outcome.endsWith('-won')).length;
+    const ok = results.filter(r => endedNormally(r.outcome)).length;
     console.log(`  => ended normally: ${ok}/${results.length}, stuck/hang/crash: ${results.length - ok}/${results.length}\n`);
 
     console.log('INVARIANT VIOLATIONS                                         games  occurrences');
@@ -438,11 +460,11 @@ function printReport(opts, results, ms) {
                 `max ${Math.max(0, ...played.map(r => r.stats.aiMsMax)).toFixed(1)} ms`);
     console.log(`  computer turns: played ${sum('computerPlays')}, drew ${sum('computerDraws')}, ` +
                 `passed (deck empty, no move) ${sum('computerPasses')}`);
-    console.log(`  bot turns: played ${sum('botPlays')}, drew ${sum('botDraws')}, ` +
+    console.log(`  bot turns: played ${sum('botPlays')}, drew ${sum('botDraws')}, passed (deck empty) ${sum('botPasses')}, ` +
                 `had a set but no room on the board ${sum('botNoRoom')}`);
 
     console.log('\nEXAMPLES (first game with each problem' + (opts.verbose ? ', then every game' : '; --verbose lists every game') + ')');
-    for (const key of Object.keys(OUTCOMES).filter(k => !k.endsWith('-won'))) {
+    for (const key of Object.keys(OUTCOMES).filter(k => !endedNormally(k))) {
         const r = results.find(x => x.outcome === key);
         if (!r) continue;
         console.log(`\n  [${key}] seed ${r.seed}, turn ${r.turns}`);
@@ -476,7 +498,7 @@ async function main() {
     let from = 0;
     while (from < opts.games) from = await runWorker(opts, from, results);
     printReport(opts, results, performance.now() - t0);
-    const bad = results.some(r => !r.outcome.endsWith('-won') || Object.keys(r.problems).length);
+    const bad = results.some(r => !endedNormally(r.outcome) || Object.keys(r.problems).length);
     process.exitCode = bad ? 1 : 0;
 }
 

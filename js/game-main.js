@@ -1,7 +1,7 @@
 // ─── Entry point: connects the game logic to the page ───────────────────────
 // Turn decisions live in game-logic.js; this file does only DOM, timing and the server call.
 import {
-    createGame, restoreState, boardCardsOf,
+    createGame, restoreState, boardCardsOf, handValue,
     endPlayerTurn, playerDraw, applyServerMove, applyComputerMove, finishComputerTurn
 } from './game-logic.js';
 import { render } from './game-render.js';
@@ -33,6 +33,25 @@ function showEndScreen(playerWon) {
     }
 }
 
+// ─── Blocked game: deck empty and nobody can play → lowest hand wins ─────────
+function showBlockedGameEnd() {
+    const mine = handValue(state.playerCards), bobs = handValue(state.computerCards);
+    const text = `The deck is empty and nobody can play. Your tiles: ${mine} points, ` +
+                 `Bob's tiles: ${bobs} points. The lowest total wins.`;
+    showMessageBox(text, 'OK', 'OK', showBlockedResult, showBlockedResult);
+}
+
+function showBlockedResult() {
+    if (state.winner !== 'tie') { showEndScreen(state.winner === 'player'); return; }
+    document.getElementById('end-title').textContent = "🤝 It's a tie!";
+    document.getElementById('end-sub').textContent   = 'Both hands have the same total.';
+    document.getElementById('end-overlay').classList.add('show');
+}
+
+function startComputerTurn() {
+    setTimeout(async () => await computerTurn(), 800);
+}
+
 // ─── Computer turn ────────────────────────────────────────────────────────────
 async function computerTurn() {
     updateTurnIndicator(false);
@@ -58,9 +77,15 @@ async function computerTurn() {
         applyComputerMove(state, boardCards);
     }
 
-    if (finishComputerTurn(state) === 'computer-won') {
+    const result = finishComputerTurn(state);
+    if (result === 'computer-won') {
         render(state);
         setTimeout(() => showEndScreen(false), 400);
+        return;
+    }
+    if (result === 'game-over') {
+        render(state);
+        showBlockedGameEnd();
         return;
     }
 
@@ -95,18 +120,22 @@ function onFinishTurn() {
     if (result === 'player-won') { showEndScreen(true); return; }
 
     updateCardCounts(state);
-    setTimeout(async () => await computerTurn(), 800);
+    startComputerTurn();
 }
 
-// ─── Player draws and ends turn ───────────────────────────────────────────────
+// ─── Player draws (or passes, if the deck is empty) and ends turn ───────────
 function drawAndEndTurn() {
-    if (playerDraw(state) === 'deck-empty') {
-        showMessageBox('The deck is empty!', 'OK', 'OK', () => {}, () => {});
-        return;
-    }
+    const result = playerDraw(state);
     render(state);
     updateCardCounts(state);
-    setTimeout(async () => await computerTurn(), 800);
+
+    if (result === 'game-over') { showBlockedGameEnd(); return; }
+    if (result === 'passed') {
+        showMessageBox('The deck is empty — you pass this turn.', 'OK', 'OK',
+                       startComputerTurn, startComputerTurn);
+        return;
+    }
+    startComputerTurn();
 }
 
 // ─── Initialise game ──────────────────────────────────────────────────────────

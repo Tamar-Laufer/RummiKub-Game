@@ -22,6 +22,10 @@ export function createGame(random = Math.random) {
         // Snapshot from the start of the player's turn — restored when the move is invalid
         savedBoard:  null,
         savedPlayer: null,
+        // Turns in a row that ended without placing tiles while the deck was empty.
+        // Two in a row = nobody can play → the game ends (see endIfBlocked).
+        passesInRow: 0,
+        winner: null,   // set when a blocked game ends: 'player' | 'computer' | 'tie'
     };
     saveState(state);
     return state;
@@ -72,23 +76,49 @@ export function endPlayerTurn(state) {
         return 'invalid';
     if (state.playerCards.length === 0)
         return 'player-won';
+    state.passesInRow  = 0;
     state.isPlayerTurn = false;
     return 'ok';
 }
 
 // ─── Player draws and ends turn ───────────────────────────────────────────────
-// 'deck-empty' — nothing drawn, still the player's turn
-// 'ok'         — drew one card, turn passes to the computer
+// 'ok'        — drew one card, turn passes to the computer
+// 'passed'    — deck is empty: the player passes, turn passes to the computer
+// 'game-over' — deck is empty and both players passed in a row (see state.winner)
 export function playerDraw(state) {
-    if (state.remainingDeck.length === 0) return 'deck-empty';
-    state.playerCards.push(...drawCards(state.remainingDeck, 1));
     state.isPlayerTurn = false;
+    if (state.remainingDeck.length === 0) {
+        state.passesInRow++;
+        return endIfBlocked(state) ? 'game-over' : 'passed';
+    }
+    state.playerCards.push(...drawCards(state.remainingDeck, 1));
+    state.passesInRow = 0;
     return 'ok';
 }
 
-// ─── Draw one card safely (computer) ─────────────────────────────────────────
+// ─── Draw one card, or pass if the deck is empty (computer) ──────────────────
 function drawOneCard(state) {
-    if (state.remainingDeck.length > 0) state.computerCards.push(...drawCards(state.remainingDeck, 1));
+    if (state.remainingDeck.length > 0) {
+        state.computerCards.push(...drawCards(state.remainingDeck, 1));
+        state.passesInRow = 0;
+    } else {
+        state.passesInRow++;
+    }
+}
+
+// ─── Blocked game: deck empty and nobody can play ────────────────────────────
+// Rule: the player with the lowest sum of tiles in hand wins.
+export function handValue(tiles) {
+    return tiles.reduce((sum, t) => sum + t[1], 0);
+}
+
+// Passes are only counted while the deck is empty, so two in a row means both
+// players passed one after the other.
+function endIfBlocked(state) {
+    if (state.remainingDeck.length > 0 || state.passesInRow < 2) return false;
+    const player = handValue(state.playerCards), computer = handValue(state.computerCards);
+    state.winner = player < computer ? 'player' : computer < player ? 'computer' : 'tie';
+    return true;
 }
 
 // ─── Apply the Python server's answer ─────────────────────────────────────────
@@ -99,6 +129,7 @@ export function applyServerMove(state, data, boardCards) {
     if (data.sets.length > 0 && handPlayed > 0 && allBoardCardsPresent(boardCards, data.sets)) {
         state.gameBoard     = data.board.map(row => row.map(cell => cell || null));
         state.computerCards = data.remainingHand;
+        state.passesInRow   = 0;
     } else {
         drawOneCard(state);
     }
@@ -111,6 +142,7 @@ export function applyComputerMove(state, boardCards) {
     if (result.sets.length > 0) {
         state.gameBoard     = placeSetsOnBoard(result.sets);
         state.computerCards = result.remainingHand;
+        state.passesInRow   = 0;
     } else {
         drawOneCard(state);
     }
@@ -118,9 +150,11 @@ export function applyComputerMove(state, boardCards) {
 
 // ─── After the computer moved ────────────────────────────────────────────────
 // 'computer-won' — computer's hand is empty
+// 'game-over'    — deck is empty and both players passed in a row (see state.winner)
 // 'ok'           — turn passes to the player (and the board is saved for Try Again)
 export function finishComputerTurn(state) {
     if (state.computerCards.length === 0) return 'computer-won';
+    if (endIfBlocked(state)) return 'game-over';
     state.isPlayerTurn = true;
     saveState(state);
     return 'ok';
