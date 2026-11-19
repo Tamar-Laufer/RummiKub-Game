@@ -20,6 +20,20 @@ function computerTurn(state) {
     return finishComputerTurn(state);
 }
 
+test('a normal game deals 14 + 14 and leaves 76 tiles in the deck', () => {
+    const state = createGame();
+    assert.equal(state.playerCards.length, 14);
+    assert.equal(state.computerCards.length, 14);
+    assert.equal(state.remainingDeck.length, 76);
+});
+
+test('test mode deckSize: 5 keeps only 5 tiles in the deck, hands unchanged', () => {
+    const state = createGame(Math.random, { deckSize: 5 });
+    assert.equal(state.playerCards.length, 14);
+    assert.equal(state.computerCards.length, 14);
+    assert.equal(state.remainingDeck.length, 5);
+});
+
 test('player draws one tile while the deck has tiles', () => {
     const state = createGame();
     const before = state.playerCards.length;

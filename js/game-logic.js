@@ -11,7 +11,9 @@ export function emptyBoard() {
 }
 
 // ─── The whole game state, in one object ─────────────────────────────────────
-export function createGame(random = Math.random) {
+// options.deckSize (test mode only): after dealing, keep only this many tiles in
+// the deck, so the end of the game is reached quickly. The other tiles leave the game.
+export function createGame(random = Math.random, options = {}) {
     const remainingDeck = shuffledDeck(random);
     const state = {
         remainingDeck,
@@ -27,6 +29,7 @@ export function createGame(random = Math.random) {
         passesInRow: 0,
         winner: null,   // set when a blocked game ends: 'player' | 'computer' | 'tie'
     };
+    if (options.deckSize !== undefined) remainingDeck.splice(options.deckSize);
     saveState(state);
     return state;
 }

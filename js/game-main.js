@@ -10,6 +10,9 @@ import { updateTurnIndicator, updateCardCounts, showMessageBox, setServerStatus 
 
 const PYTHON_SERVER = 'http://localhost:5000';
 
+// Test mode: open game.html?smallDeck and the deck starts with only 5 tiles
+const SMALL_DECK_SIZE = 5;
+
 let state = null;   // created in initGame
 
 function restoreAndRender() {
@@ -146,7 +149,8 @@ function initGame() {
         if (nameEl) nameEl.textContent = currentUser.username;
     }
 
-    state = createGame();
+    const smallDeck = new URLSearchParams(window.location.search).has('smallDeck');
+    state = createGame(Math.random, smallDeck ? { deckSize: SMALL_DECK_SIZE } : {});
 
     setupBoard(state);
     setupTrayDrop(state);
