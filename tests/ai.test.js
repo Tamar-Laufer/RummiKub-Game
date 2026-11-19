@@ -43,9 +43,10 @@ test('computer move never loses tiles (playtest seed 2, turn 86: board almost fu
     assert.deepEqual(after, before);
 });
 
-test('the board is big enough for the AI to lay out all 104 tiles', () => {
-    // Measured: the AI needs at most 7 rows, even with every tile on the board
-    const deck = [...FULL_DECK];
+test('the board is big enough for the AI to lay out all 104 numbered tiles', () => {
+    // Measured: the AI needs at most 7 rows, even with every tile on the board.
+    // (The original algorithm works on numbered tiles; jokers are handled around it.)
+    const deck = FULL_DECK.filter(t => t[0] !== 'joker');
     const move = fitMoveOnBoard(deck, [], matrixGreedyFindSets(deck, []).sets, BOARD_ROWS, BOARD_COLS);
     assert.deepEqual(move.remainingHand, [], 'every tile should be placed, none held back for lack of room');
 });

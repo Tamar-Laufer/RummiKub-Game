@@ -20,11 +20,13 @@ function computerTurn(state) {
     return finishComputerTurn(state);
 }
 
-test('a normal game deals 14 + 14 and leaves 76 tiles in the deck', () => {
+test('a normal game deals 14 + 14 and leaves 78 tiles in the deck (106 with 2 jokers)', () => {
     const state = createGame();
     assert.equal(state.playerCards.length, 14);
     assert.equal(state.computerCards.length, 14);
-    assert.equal(state.remainingDeck.length, 76);
+    assert.equal(state.remainingDeck.length, 78);
+    const all = [...state.playerCards, ...state.computerCards, ...state.remainingDeck];
+    assert.equal(all.filter(t => t[0] === 'joker').length, 2);
 });
 
 test('test mode deckSize: 5 keeps only 5 tiles in the deck, hands unchanged', () => {

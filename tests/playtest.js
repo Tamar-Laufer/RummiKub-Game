@@ -36,9 +36,11 @@ function seededRandom(seed) {
 
 const SHORT = { red: 'R', black: 'K', blue: 'B', orange: 'O' };
 const tileKey  = t => `${t[0]}-${t[1]}`;
-const showTile = t => `${SHORT[t[0]] ?? t[0]}${t[1]}`;
+const isJ = t => t[0] === 'joker';
+const showTile = t => isJ(t) ? (t[1] === 'red' ? 'J' : 'j') : `${SHORT[t[0]] ?? t[0]}${t[1]}`;
 const showTiles = tiles => tiles.map(showTile).join(' ');
-const points = tiles => tiles.reduce((sum, t) => sum + t[1], 0);
+// Hand value at the end of a blocked game: a joker counts 30
+const handPoints = tiles => tiles.reduce((sum, t) => sum + (isJ(t) ? 30 : t[1]), 0);
 
 // Tiles of a that are not matched by tiles of b (multiset difference, by color+number)
 function minus(a, b) {
@@ -74,18 +76,40 @@ function segmentsOf(board) {
 const setKey = tiles => tiles.map(tileKey).sort().join(',');
 const showSeg = s => `[${showTiles(s.tiles)}]@r${s.row}c${s.col}`;
 
-// Independent strict check of one set (written separately from js/rules.js on purpose)
+// ─── Independent set check (written separately from js/rules.js on purpose) ──
+// Brute force: every way the set could be read — a group of number n (n = 1..13),
+// or a run starting at s (left to right) — with jokers standing for anything.
+// Returns the list of readings, each one the numbers the tiles stand for.
+function readings(tiles) {
+    const out = [];
+    const real = tiles.filter(t => !isJ(t));
+    if (real.length === 0) return out;
+    if (tiles.length >= 3 && tiles.length <= 4 && new Set(real.map(t => t[0])).size === real.length)
+        for (let n = 1; n <= 13; n++)
+            if (real.every(t => t[1] === n)) out.push(tiles.map(() => n));
+    if (tiles.length >= 3 && real.every(t => t[0] === real[0][0]))
+        for (let s = 1; s + tiles.length - 1 <= 13; s++)
+            if (tiles.every((t, i) => isJ(t) || t[1] === s + i)) out.push(tiles.map((_, i) => s + i));
+    return out;
+}
+
+// Points of a set: the highest reading (jokers count as the tile they stand for); 0 if not valid
+function setValue(tiles) {
+    const sums = readings(tiles).map(r => r.reduce((a, b) => a + b, 0));
+    return sums.length ? Math.max(...sums) : 0;
+}
+
 function setProblem(tiles) {
     if (tiles.length < 3) return 'fewer than 3 tiles';
+    if (readings(tiles).length > 0) return null;
+    if (tiles.some(isJ)) return 'not a valid group or run (left to right), even with the joker';
     if (tiles.every(t => t[1] === tiles[0][1])) {
         if (tiles.length > 4) return 'group of more than 4 tiles';
         if (new Set(tiles.map(t => t[0])).size !== tiles.length) return 'group with a repeated color';
         return null;
     }
     if (!tiles.every(t => t[0] === tiles[0][0])) return 'neither one number (group) nor one color (run)';
-    for (let i = 1; i < tiles.length; i++)
-        if (tiles[i][1] !== tiles[i - 1][1] + 1) return 'run is not consecutive left to right';
-    return null;
+    return 'run is not consecutive left to right';
 }
 
 function snapshot(state) {
@@ -99,7 +123,8 @@ function snapshot(state) {
 
 // ═══ The bot (plays instead of the human) ═════════════════════════════════════
 // Each turn: find runs/groups in its own hand and put them in empty board space,
-// like dragging tiles from the tray. Obeys the 30-point opening. Otherwise draws.
+// like dragging tiles from the tray. A joker completes a pair left in the hand.
+// Obeys the 30-point opening. Otherwise draws.
 
 function removeTiles(list, tiles) {
     for (const t of tiles) list.splice(list.indexOf(t), 1);
@@ -129,13 +154,35 @@ function takeRuns(free, sets) {
     }
 }
 
+// Each joker in the hand completes the most valuable pair left over (tries every pair
+// and every joker position, keeps what setValue accepts)
+function takeJokerSets(free, sets) {
+    for (const joker of free.filter(isJ)) {
+        const others = free.filter(t => !isJ(t));
+        let best = null;
+        for (let i = 0; i < others.length; i++)
+            for (let k = i + 1; k < others.length; k++) {
+                const [a, b] = others[i][1] <= others[k][1] ? [others[i], others[k]] : [others[k], others[i]];
+                for (const set of [[a, b, joker], [joker, a, b], [a, joker, b]]) {
+                    const v = setValue(set);
+                    if (v > 0 && (!best || v > best.v)) best = { set, v };
+                }
+            }
+        if (!best) break;
+        sets.push(best.set);
+        removeTiles(free, best.set);
+    }
+}
+
 function findHandSets(hand) {
     const options = [['runs', 'groups'], ['groups', 'runs']].map(order => {
-        const free = [...hand], sets = [];
+        const free = hand.filter(t => !isJ(t)), sets = [];
         for (const kind of order) (kind === 'runs' ? takeRuns : takeGroups)(free, sets);
+        free.push(...hand.filter(isJ));
+        takeJokerSets(free, sets);
         return sets;
     });
-    const value = sets => points(sets.flat());
+    const value = sets => sets.reduce((sum, s) => sum + setValue(s), 0);
     return value(options[0]) >= value(options[1]) ? options[0] : options[1];
 }
 
@@ -163,7 +210,7 @@ function botMove(state, hasOpened) {
         placements.push({ set, ...pos });
     }
     const noRoom = placements.length < sets.length;
-    const value = points(placements.flatMap(p => p.set));
+    const value = placements.reduce((sum, p) => sum + setValue(p.set), 0);
     if (placements.length === 0 || (!hasOpened && value < 30)) return { placed: 0, noRoom };
 
     // Same effect as dragging each tile from the tray to the board
@@ -210,11 +257,11 @@ function checkTurn(before, state, actor, outcome, opened, report) {
         if (touched.length)
             report('opening-touched-board',
                 `first meld changed existing board sets: ${touched.map(showSeg).join(' ')}`);
-        const meld = minus(remaining.flatMap(s => s.tiles), touched.flatMap(s => s.tiles));
-        const meldFromHand = minus(meld, minus(meld, before[handKey]));
-        if (points(meldFromHand) < 30)
+        // value of the new sets (a joker counts as the tile it stands for)
+        const meldValue = remaining.reduce((sum, s) => sum + setValue(s.tiles), 0);
+        if (meldValue < 30)
             report('opening-under-30',
-                `first meld from hand is worth ${points(meldFromHand)} points: ${showTiles(meldFromHand)}`);
+                `first meld is worth ${meldValue} points: ${remaining.map(showSeg).join(' ')}`);
     }
 
     // 4. Board tiles never go back to a hand; a hand only gains drawn tiles
@@ -239,7 +286,7 @@ function checkTurn(before, state, actor, outcome, opened, report) {
 
 // A blocked game may end only with an empty deck, and the lowest hand must win
 function checkBlockedEnd(state, report) {
-    const player = points(state.playerCards), computer = points(state.computerCards);
+    const player = handPoints(state.playerCards), computer = handPoints(state.computerCards);
     const expected = player < computer ? 'player' : computer < player ? 'computer' : 'tie';
     if (state.remainingDeck.length > 0)
         report('wrong-game-over', `blocked game ended with ${state.remainingDeck.length} tiles still in the deck`);
@@ -254,7 +301,9 @@ function playGame(seed, opts, heartbeat) {
     const opened = { player: false, computer: false };
     const problems = {};   // type → { count, turns, first }
     const stats = { aiCalls: 0, aiMsTotal: 0, aiMsMax: 0, botPlays: 0, botDraws: 0, botPasses: 0, botNoRoom: 0,
-                    computerPlays: 0, computerDraws: 0, computerPasses: 0 };
+                    computerPlays: 0, computerDraws: 0, computerPasses: 0,
+                    botJokersPlayed: 0, computerJokersPlayed: 0 };
+    const jokersIn = tiles => tiles.filter(isJ).length;
 
     const finish = (outcome, turns, message = null) =>
         ({ seed, outcome, turns, message, finalState: snapshot(state), problems, stats });
@@ -287,7 +336,8 @@ function playGame(seed, opts, heartbeat) {
             if (move.placed > 0) {
                 stats.botPlays++;
                 outcome = endPlayerTurn(state);
-                if (outcome === 'no-move' || outcome === 'invalid') {
+                if (outcome !== 'ok' && outcome !== 'player-won') {
+                    // any rejection (invalid, opening-too-low, invalid-run-order, ...)
                     report('bot-move-rejected', `endPlayerTurn() returned '${outcome}' for the bot's move`);
                     restoreState(state);              // same as clicking "Take a Card"
                     outcome = playerDraw(state);
@@ -316,6 +366,10 @@ function playGame(seed, opts, heartbeat) {
             else stats.computerPasses++;
             outcome = finishComputerTurn(state);
         }
+
+        const jokersPlayed = jokersIn(before[actor === 'player' ? 'playerCards' : 'computerCards']) -
+                             jokersIn(actor === 'player' ? state.playerCards : state.computerCards);
+        if (jokersPlayed > 0) stats[actor === 'player' ? 'botJokersPlayed' : 'computerJokersPlayed'] += jokersPlayed;
 
         checkTurn(before, state, actor, outcome, opened, report);
         if (outcome === 'player-won' || outcome === 'computer-won') return finish(outcome, turn);
@@ -475,6 +529,8 @@ function printReport(opts, results, ms) {
                 `max ${Math.max(0, ...played.map(r => r.stats.aiMsMax)).toFixed(1)} ms`);
     console.log(`  computer turns: played ${sum('computerPlays')}, drew ${sum('computerDraws')}, ` +
                 `passed (deck empty, no move) ${sum('computerPasses')}`);
+    console.log(`  jokers played: by the bot ${sum('botJokersPlayed')} (in ${played.filter(r => r.stats.botJokersPlayed).length} games), ` +
+                `by the computer ${sum('computerJokersPlayed')} (in ${played.filter(r => r.stats.computerJokersPlayed).length} games)`);
     console.log(`  bot turns: played ${sum('botPlays')}, drew ${sum('botDraws')}, passed (deck empty) ${sum('botPasses')}, ` +
                 `had a set but no room on the board ${sum('botNoRoom')}`);
 

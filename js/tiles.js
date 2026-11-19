@@ -2,15 +2,15 @@
 export const COLORS = ['red', 'black', 'blue', 'orange'];
 
 // ─── Jokers: a red one and a black one (see isJoker in rules.js) ─────────────
-// Not in the deck yet (next step); the ?jokers test mode deals them to the player.
 export const JOKERS = [['joker', 'red'], ['joker', 'black']];
 
-// ─── Full deck (2 copies × 4 colors × 13 numbers) ────────────────────────────
+// ─── Full deck: 2 copies × 4 colors × 13 numbers + 2 jokers = 106 tiles ──────
 export const FULL_DECK = [];
 for (const color of COLORS)
     for (let copy = 0; copy < 2; copy++)
         for (let num = 1; num <= 13; num++)
             FULL_DECK.push([color, num]);
+FULL_DECK.push(...JOKERS);
 
 // random: a function returning a number in [0, 1).
 // The browser uses Math.random; the tests pass a seeded one so games can be replayed.
