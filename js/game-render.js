@@ -1,3 +1,9 @@
+// ─── Rendering (DOM) ──────────────────────────────────────────────────────────
+import { BOARD_ROWS, BOARD_COLS } from './game-logic.js';
+import { updateCardCounts } from './game-ui.js';
+
+const COLOR_HEX = { red: '#FF0000', black: '#000000', blue: '#0000FF', orange: '#FFA500' };
+
 // ─── Card element ─────────────────────────────────────────────────────────────
 function createCardEl(card, id) {
     const el = document.createElement('div');
@@ -28,30 +34,30 @@ function createCardEl(card, id) {
 }
 
 // ─── Render board ─────────────────────────────────────────────────────────────
-function renderBoard() {
-    for (let r = 0; r < 5; r++) {
-        for (let c = 0; c < 22; c++) {
+function renderBoard(state) {
+    for (let r = 0; r < BOARD_ROWS; r++) {
+        for (let c = 0; c < BOARD_COLS; c++) {
             const cell = document.getElementById(`cell-${r}-${c}`);
             if (!cell) continue;
             cell.innerHTML = '';
-            if (gameBoard[r][c])
-                cell.appendChild(createCardEl(gameBoard[r][c], `bc-${r}-${c}`));
+            if (state.gameBoard[r][c])
+                cell.appendChild(createCardEl(state.gameBoard[r][c], `bc-${r}-${c}`));
         }
     }
 }
 
 // ─── Render tray ──────────────────────────────────────────────────────────────
-function renderTray() {
+function renderTray(state) {
     const box = document.querySelector('.box');
     if (!box) return;
     box.innerHTML = '';
-    playerCards.forEach((card, i) =>
+    state.playerCards.forEach((card, i) =>
         box.appendChild(createCardEl(card, `tc-${i}`))
     );
 }
 
-function render() {
-    renderBoard();
-    renderTray();
-    if (typeof updateCardCounts === 'function') updateCardCounts();
+export function render(state) {
+    renderBoard(state);
+    renderTray(state);
+    updateCardCounts(state);
 }

@@ -6,33 +6,35 @@
 המשחק לא עובד טוב: יש באגים בחוקים, בתורות ובהחלטות של המחשב. המטרה היא לתקן אותו בלי לאבד את הרעיונות שלי.
 
 - **טכנולוגיות:** JavaScript רגיל (Vanilla JS), HTML ו־CSS. בלי framework ובלי build.
-- **רץ בדפדפן.** אין שרת ואין backend.
+- **רץ בדפדפן, דרך שרת מקומי** (ראה "איך מריצים"). יש גם שרת Flask אופציונלי (`app.py`) עם AI בפייתון.
 - **אל תוסיף frameworks או ספריות** (React, jQuery וכו') בלי לשאול אותי קודם.
 
 ## איך מריצים
-- **הדרך הפשוטה:** לפתוח את `index.html` בדפדפן.
-- **מומלץ:** להריץ שרת מקומי, כדי למנוע בעיות עם מודולים או טעינת קבצים:
+- **חובה שרת מקומי.** המשחק נטען כ־ES modules (`<script type="module">`), והדפדפן חוסם modules בקובץ שנפתח ישירות (`file://`). לחיצה כפולה על `html/game.html` כבר לא עובדת.
   ```bash
-  npx serve .
-  # או: python3 -m http.server 8000  ואז לפתוח http://localhost:8000
+  python app.py                  # האתר + ה־AI בפייתון → http://localhost:5000
+  # בלי ה־AI בפייתון (המחשב משתמש ב־AI שב־JS):
+  python -m http.server 8000     # → http://localhost:8000/html/game.html
+  # או: npx serve .   /   Live Server ב־VS Code
   ```
-  ב־VS Code אפשר גם להשתמש בתוסף Live Server.
 - **ניפוי שגיאות:** כל השגיאות מופיעות ב־Console של הדפדפן (F12).
 
 ### בדיקות
-- את הבדיקות נכתוב ונריץ עם ה־test runner המובנה של Node, בלי להתקין כלום:
+- בדיקות יחידה עם ה־test runner המובנה של Node, בלי להתקין כלום. קבצי הבדיקה נקראים `tests/*.test.js`:
   ```bash
-  node --test tests/
+  node --test "tests/**/*.test.js"     # או: npm test
   ```
-- כדי שאפשר יהיה לבדוק את הלוגיקה ב־Node, היא צריכה להיות בקבצים נפרדים בלי גישה ל־DOM (`document`, `window`) ולייצא את הפונקציות שלה (ES modules, `export`).
+  (`node --test tests/` לא עובד ב־Node 22: הוא מתייחס ל־`tests/` כאל שם של קובץ.)
+- הלוגיקה נמצאת בקבצים בלי DOM עם `export` (ES modules), ולכן Node יכול לייבא אותה. `package.json` קיים רק כדי להגיד ל־Node שקבצי `.js` הם ES modules. אין בו תלויות.
 
 ## מבנה הקבצים
 
-### המבנה הנוכחי (עודכן 2026-11-19)
+### המבנה הנוכחי (עודכן 2026-11-19, אחרי הפרדת הלוגיקה מה־DOM)
 ```
 /
 ├── app.py                  # שרת Flask (אופציונלי): מגיש את האתר ב־http://localhost:5000 + API של AI בפייתון
 ├── requirements.txt        # flask, flask-cors (רק בשביל app.py)
+├── package.json            # רק "type": "module" + סקריפטים (npm test, npm run playtest). אין תלויות
 ├── ai/
 │   ├── algorithm.py        # AI בפייתון: greedy פשוט (קבוצות/סדרות). לא זהה לאלגוריתם ב־JS!
 │   └── server.py           # עותק ישן של ה־API (לא בשימוש; app.py מחליף אותו)
@@ -40,28 +42,34 @@
 │   ├── contat.html         # דף כניסה/הרשמה (דף הבית של app.py, "/")
 │   ├── home.html           # חנות משחקים: בחירת משחק → game.html
 │   ├── instructions.html   # הוראות (אין אליו קישור מאף דף)
-│   ├── game.html           # דף המשחק. טוען 7 סקריפטים בסדר קבוע (ראה למטה)
+│   ├── game.html           # דף המשחק. טוען רק את js/game-main.js כ־module
 │   └── win.html, fail.html # מסכי ניצחון / הפסד
 ├── css/                    # קובץ CSS לכל דף (game.css, home.css, contant.css, ...)
 ├── js/
-│   │  — המשחק: נטענים ב־game.html בסדר הזה, כסקריפטים רגילים עם משתנים גלובליים (בלי modules, בלי export) —
-│   ├── game-state.js       # קבועים (COLORS, FULL_DECK), משתני המצב הגלובליים, ערבוב, משיכה, save/restore
-│   ├── game-render.js      # ציור אבנים, לוח ויד (DOM)
-│   ├── game-board.js       # בניית הלוח 5×22 וגרירה ושחרור (DOM)
-│   ├── game-validation.js  # isValidGroup / isValidRun / isValidSet / isBoardValid (בלי DOM, אבל isBoardValid קורא את gameBoard הגלובלי)
-│   ├── game-algorithm.js   # ה־AI המקורי (מטריצה 4×13: runOnePass, matrixGreedyFindSets), בלי DOM
-│   ├── game-ui.js          # אינדיקטור תור, ספירת אבנים, חלון הודעה, סטטוס שרת (DOM)
-│   ├── game-main.js        # ניהול התורות: computerTurn, endPlayerTurn, drawAndEndTurn, initGame (מעורב עם DOM)
+│   │  — לוגיקה, בלי DOM (Node יכול לייבא) —
+│   ├── tiles.js            # COLORS, FULL_DECK, shuffledDeck(random), drawCards(deck, n)
+│   ├── rules.js            # isValidGroup / isValidRun / isValidSet / isBoardValid(board)
+│   ├── ai.js               # ה־AI המקורי (מטריצה 4×13: runOnePass, matrixGreedyFindSets, placeSetsOnBoard)
+│   ├── game-logic.js       # אובייקט המצב (createGame) + החלטות התור: endPlayerTurn, playerDraw,
+│   │                       #   applyComputerMove, applyServerMove, finishComputerTurn
+│   │  — ממשק (DOM) —
+│   ├── game-main.js        # נקודת הכניסה: אתחול, כפתורים, תזמון, קריאה לשרת הפייתון
+│   ├── game-render.js      # ציור אבנים, לוח ויד
+│   ├── game-board.js       # בניית הלוח 5×22, גרירה ושחרור
+│   ├── game-ui.js          # אינדיקטור תור, מונים, חלון הודעה, סטטוס שרת
 │   │  — אחר —
 │   ├── game.js             # גרסה ישנה של כל המשחק בקובץ אחד. לא נטען מאף דף (קוד מת)
 │   ├── contant.js          # כניסה/הרשמה, שומר משתמשים ב־localStorage
 │   └── home.js, instructions.js, win.js, fail.js  # ממשק של הדפים האחרים
+├── tests/
+│   └── playtest.js         # בוט הבדיקות (ראה "בוט בדיקות")
 ├── images/
 └── CLAUDE.md
 ```
-- **אין `index.html`.** נקודת הכניסה היא `html/contat.html` (כניסה), משם `home.html`, ומשם `game.html`. אפשר גם לפתוח ישר את `html/game.html`.
-- **ה־AI של המחשב:** בכל תור `computerTurn` מנסה קודם `POST http://localhost:5000/computer-turn` (פייתון). אם השרת לא רץ, הוא נופל ל־`matrixGreedyFindSets` ב־JS. הסימון בפינה (🐍 Python / ⚡ JS) מראה מי שיחק.
-- **מצב המשחק** הוא משתנים גלובליים נפרדים (`remainingDeck`, `playerCards`, `computerCards`, `gameBoard` בגודל 5×22, `isPlayerTurn`), לא אובייקט אחד. אבן = `[color, number]`, למשל `['red', 7]`.
+- **אין `index.html`.** נקודת הכניסה היא `html/contat.html` (כניסה), משם `home.html`, ומשם `game.html`. אפשר גם לפתוח ישר את `html/game.html` (דרך שרת).
+- **ה־AI של המחשב:** בכל תור `computerTurn` מנסה קודם `POST http://localhost:5000/computer-turn` (פייתון). אם השרת לא רץ, הוא נופל ל־`applyComputerMove` (ה־AI ב־JS). הסימון בפינה (🐍 Python / ⚡ JS) מראה מי שיחק.
+- **מצב המשחק** הוא אובייקט אחד `state` שנוצר ב־`createGame()`: `remainingDeck`, `playerCards`, `computerCards`, `gameBoard` (5×22, `null` = תא ריק), `isPlayerTurn`, ו־`savedBoard`/`savedPlayer` (תמונת מצב מתחילת התור, בשביל "Try Again"). אבן = `[color, number]`, למשל `['red', 7]`. קבצי הממשק מקבלים את `state` כפרמטר.
+- **מול מבנה היעד:** `tiles.js`, `rules.js` ו־`ai.js` כבר במקומם. `game-logic.js` הוא ה־`game.js` של היעד (השם עדיין תפוס על ידי הקובץ הישן). ארבעת קבצי ה־`game-*.js` של הממשק הם ה־`ui.js` + `main.js` של היעד.
 
 ### מבנה היעד שאליו נתקדם בהדרגה
 ```
@@ -123,6 +131,9 @@
 - [ ] **המשחק נתקע.** בשלב מסוים המשחק מפסיק להתקדם. עדיין לא ידוע למה: לולאה אינסופית ב־AI, תור שלא עובר, או מצב שאין ממנו יציאה. את הסיבה צריך למצוא עם בוט הבדיקות (ראה למטה).
 - [ ] **אין אכיפה של 30 נקודות בפתיחה.** אפשר להניח בפעם הראשונה צירופים בסכום נמוך מ־30. האכיפה צריכה לחול גם על השחקן וגם על המחשב.
 - [ ] **אין ג'וקר.** הג'וקרים לא קיימים במשחק. צריך להוסיף אותם לחפיסה, לבדיקת החוקיות (סדרות, קבוצות וחישוב סכום הפתיחה), ל־AI, לממשק ולהחלפת ג'וקר מהשולחן.
+- [ ] **אין סיום כשהקופה ריקה** (נמצא ע"י הבוט, כנראה זו ההיתקעות). ב־380 מתוך 500 משחקים: הקופה ריקה ולשחקן אין מהלך. "Draw" מציג "The deck is empty!", "Done" מציג "You must play a tile or draw a card!", והתור לא עובר לעולם. חוק "הסכום הנמוך מנצח" לא ממומש. (המחשב, לעומת זאת, פשוט מוותר על התור.) שחזור: `node tests/playtest.js --games 1 --seed 1 --verbose`.
+- [ ] **אבנים נעלמות כשהלוח מתמלא** (נמצא ע"י הבוט). ב־188 מתוך 500 משחקים. החשוד: `placeSetsOnBoard` ב־`js/ai.js`. כשהצירופים לא נכנסים ב־5 שורות היא עוצרת (`if (r >= 5) break`), והאבנים שלא נכנסו נעלמות, אבל עדיין יוצאות מהיד של המחשב. 112 מתוך 120 הניצחונות של המחשב קרו כך. שחזור: `--seed 2` (תור 86).
+- [ ] **המחשב משנה את השולחן לפני שפתח** (נמצא ע"י הבוט). ב־117 משחקים, הפתיחה הראשונה של המחשב השתמשה באבנים שכבר היו על השולחן. קשור לאכיפת 30 (הבוט מצא פתיחה מתחת ל־30 ב־247 משחקים).
 
 ### סדר הטיפול
 1. בוט בדיקות שמשחק אוטומטית ומדווח על בעיות.
@@ -132,6 +143,8 @@
 
 ## בוט בדיקות (Playtest)
 סקריפט Node (`tests/playtest.js`) שמריץ הרבה משחקים שלמים אוטומטית, בלי דפדפן, ומדווח על בעיות.
+
+- **מצב: קיים.** המחשב משחק עם ה־AI ב־JS (`applyComputerMove`). ה־AI בפייתון לא נבדק. הבוט מניח רק צירופים שלמים מהיד ולא מוסיף אבנים לצירופים שעל השולחן, אז הוא חלש מאדם. כל המשחקים רצים ב־worker thread: אם תור לא נגמר תוך 5 שניות, הבוט מדווח hang וממשיך. אפשרויות נוספות: `--max-turns`, `--slow-ms`, `--hang-ms`, `--verbose`. `npm run playtest` = 500 משחקים עם seed 1.
 
 - **שחקן הבוט:** במקום השחקן האנושי משחק בוט פשוט שמנסה בכל תור להניח צירופים חוקיים מהיד, ואם הוא לא מצליח, מושך אבן. מולו משחק ה־AI האמיתי של המשחק.
 - **הרצה:** `node tests/playtest.js --games 500 --seed 1`. ה־seed קובע את הערבוב, כדי שאפשר יהיה לשחזר כל באג.

@@ -1,13 +1,15 @@
-// ─── Set validation (original isValidSet logic) ───────────────────────────────
+// ─── Rules: set and board validation (logic only, no DOM) ───────────────────
+// Moved from game-validation.js. Same logic; isBoardValid now receives the board
+// as a parameter instead of reading the global gameBoard.
 
-function isValidGroup(tiles) {
+export function isValidGroup(tiles) {
     if (tiles.length < 3 || tiles.length > 4) return false;
     const num    = tiles[0][1];
     const colors = new Set(tiles.map(t => t[0]));
     return tiles.every(t => t[1] === num) && colors.size === tiles.length;
 }
 
-function isValidRun(tiles) {
+export function isValidRun(tiles) {
     if (tiles.length < 3) return false;
     const color  = tiles[0][0];
     const sorted = [...tiles].sort((a, b) => a[1] - b[1]);
@@ -16,16 +18,18 @@ function isValidRun(tiles) {
     );
 }
 
-function isValidSet(tiles) {
+export function isValidSet(tiles) {
     return isValidGroup(tiles) || isValidRun(tiles);
 }
 
 // ─── Full board validation (original isValidRummikubSeriesMatrix logic) ───────
-function isBoardValid() {
-    for (let r = 0; r < 5; r++) {
+// A set is a row segment of adjacent tiles; an empty cell separates sets.
+export function isBoardValid(board) {
+    for (let r = 0; r < board.length; r++) {
+        const cols = board[r].length;
         let run = [];
-        for (let c = 0; c <= 22; c++) {
-            const tile = c < 22 ? gameBoard[r][c] : null;
+        for (let c = 0; c <= cols; c++) {
+            const tile = c < cols ? board[r][c] : null;
             if (tile) {
                 run.push(tile);
             } else if (run.length > 0) {

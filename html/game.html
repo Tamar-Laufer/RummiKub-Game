@@ -99,13 +99,8 @@
         </div>
     </div>
 
-    <!-- ── Scripts (dependency order) ───────────────────────────────── -->
-    <script src="../js/game-state.js"></script>
-    <script src="../js/game-render.js"></script>
-    <script src="../js/game-board.js"></script>
-    <script src="../js/game-validation.js"></script>
-    <script src="../js/game-algorithm.js"></script>
-    <script src="../js/game-ui.js"></script>
-    <script src="../js/game-main.js"></script>
+    <!-- ── Script: ES module entry point (imports everything else) ────────── -->
+    <!-- Modules need a local server (python app.py / npx serve .), not file:// -->
+    <script type="module" src="../js/game-main.js"></script>
 </body>
 </html>

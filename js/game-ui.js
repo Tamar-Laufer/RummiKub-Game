@@ -1,5 +1,7 @@
+// ─── UI widgets (DOM) ─────────────────────────────────────────────────────────
+
 // ─── Turn indicator ───────────────────────────────────────────────────────────
-function updateTurnIndicator(isPlayer) {
+export function updateTurnIndicator(isPlayer) {
     const banner       = document.getElementById('turn-banner');
     const turnText     = document.getElementById('turn-text');
     const turnIcon     = document.getElementById('turn-icon');
@@ -30,17 +32,17 @@ function updateTurnIndicator(isPlayer) {
 }
 
 // ─── Card counts ─────────────────────────────────────────────────────────────
-function updateCardCounts() {
+export function updateCardCounts(state) {
     const hc = document.getElementById('human-count');
     const cc = document.getElementById('computer-count');
     const dc = document.getElementById('deck-count');
-    if (hc) hc.textContent = `${playerCards.length} cards`;
-    if (cc) cc.textContent = `${computerCards.length} cards`;
-    if (dc) dc.textContent = remainingDeck.length;
+    if (hc) hc.textContent = `${state.playerCards.length} cards`;
+    if (cc) cc.textContent = `${state.computerCards.length} cards`;
+    if (dc) dc.textContent = state.remainingDeck.length;
 }
 
 // ─── Message box ──────────────────────────────────────────────────────────────
-function showMessageBox(text, yesLabel, noLabel, onYes, onNo) {
+export function showMessageBox(text, yesLabel, noLabel, onYes, onNo) {
     const overlay = document.getElementById('overlay');
     document.getElementById('message-text').textContent = text;
 
@@ -63,7 +65,7 @@ function showMessageBox(text, yesLabel, noLabel, onYes, onNo) {
 }
 
 // ─── Server status indicator ──────────────────────────────────────────────────
-function setServerStatus(online) {
+export function setServerStatus(online) {
     let el = document.getElementById('server-status');
     if (!el) {
         el = document.createElement('div');

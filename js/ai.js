@@ -1,3 +1,7 @@
+// ─── Computer AI (logic only, no DOM) ────────────────────────────────────────
+// Moved as-is from game-algorithm.js. Only change: import COLORS + export functions.
+import { COLORS } from './tiles.js';
+
 // ─── Based exactly on the original algorithm — 3 bugs fixed ──────────────────
 //
 // ORIGINAL FUNCTIONS (unchanged logic):
@@ -22,7 +26,7 @@
 //   Run twice (prefer-group, prefer-run) → pick the result that plays more
 //   hand cards while keeping every board card.
 
-function runOnePass(allCards, preference) {
+export function runOnePass(allCards, preference) {
 
     // ── Build matrices (same as copyTempMatrix + addCardsToMatrix) ────────────
     const tm  = Array(4).fill(null).map(() => Array(13).fill(0));  // counts
@@ -194,7 +198,7 @@ function runOnePass(allCards, preference) {
 }
 
 // ─── Count how many hand cards appear in the result sets ─────────────────────
-function countHandUsed(hand, boardCards, sets) {
+export function countHandUsed(hand, boardCards, sets) {
     const used = {}, board = {};
     for (const s of sets)
         for (const [c, n] of s) { const k = `${c}-${n}`; used[k] = (used[k] || 0) + 1; }
@@ -206,7 +210,7 @@ function countHandUsed(hand, boardCards, sets) {
 }
 
 // ─── Work out which hand cards are still unused ───────────────────────────────
-function computeRemainingHand(hand, boardCards, sets) {
+export function computeRemainingHand(hand, boardCards, sets) {
     const used = {}, board = {};
     for (const s of sets)
         for (const [c, n] of s) { const k = `${c}-${n}`; used[k] = (used[k] || 0) + 1; }
@@ -226,7 +230,7 @@ function computeRemainingHand(hand, boardCards, sets) {
 }
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
-function matrixGreedyFindSets(hand, boardCards) {
+export function matrixGreedyFindSets(hand, boardCards) {
     const allCards = [...boardCards, ...hand];
 
     // Run twice — once preferring groups, once preferring runs
@@ -250,7 +254,7 @@ function matrixGreedyFindSets(hand, boardCards) {
 }
 
 // ─── Verify no board card was removed ────────────────────────────────────────
-function allBoardCardsPresent(boardCards, sets) {
+export function allBoardCardsPresent(boardCards, sets) {
     const needed = {}, have = {};
     for (const [c, n] of boardCards) { const k = `${c}-${n}`; needed[k] = (needed[k] || 0) + 1; }
     for (const s of sets) for (const [c, n] of s) { const k = `${c}-${n}`; have[k] = (have[k] || 0) + 1; }
@@ -259,7 +263,7 @@ function allBoardCardsPresent(boardCards, sets) {
 }
 
 // ─── Place sets onto the 5×22 board ──────────────────────────────────────────
-function placeSetsOnBoard(sets) {
+export function placeSetsOnBoard(sets) {
     const board = Array(5).fill(null).map(() => Array(22).fill(null));
     let r = 0, c = 0;
     for (const s of sets) {
