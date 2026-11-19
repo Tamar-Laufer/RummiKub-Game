@@ -1,7 +1,7 @@
 // ─── Entry point: connects the game logic to the page ───────────────────────
 // Turn decisions live in game-logic.js; this file does only DOM and timing.
 import {
-    createGame, restoreState, boardCardsOf, handValue,
+    createGame, restoreState, boardCardsOf, handValue, openingMeldPoints, OPENING_POINTS,
     endPlayerTurn, playerDraw, applyComputerMove, finishComputerTurn
 } from './game-logic.js';
 import { render } from './game-render.js';
@@ -88,9 +88,17 @@ function onFinishTurn() {
         return;
     }
 
-    if (result === 'invalid') {
-        showMessageBox(
+    const rejected = {
+        'invalid':
             'Invalid move — the board is not valid.',
+        'opening-too-low':
+            `Your first meld must be worth at least ${OPENING_POINTS} points. You placed ${openingMeldPoints(state)}.`,
+        'opening-touched-board':
+            "Before your first meld you can't move or add to tiles that are already on the board.",
+    };
+    if (rejected[result]) {
+        showMessageBox(
+            rejected[result],
             'Try Again', 'Take a Card',
             () => restoreAndRender(),
             () => { restoreAndRender(); drawAndEndTurn(); }

@@ -70,9 +70,9 @@ test('deck empty and both players pass with equal hands: tie', () => {
 });
 
 test('the game does not end while someone still places tiles', () => {
-    // Computer can play a group of 7s, so its turn is not a pass
+    // Computer can open with a group of 10s (30 points), so its turn is not a pass
     const state = blockedGame([['red', 1], ['blue', 5]],
-                              [['red', 7], ['blue', 7], ['black', 7], ['orange', 2]]);
+                              [['red', 10], ['blue', 10], ['black', 10], ['orange', 2]]);
     assert.equal(playerDraw(state), 'passed');
     assert.equal(computerTurn(state), 'ok');
     assert.equal(state.isPlayerTurn, true);
