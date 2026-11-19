@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 68">
+  <defs>
+    <filter id="ts" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2.5" flood-color="rgba(0,0,0,0.5)"/>
+    </filter>
+    <linearGradient id="gld" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#f0c840"/>
+      <stop offset="45%"  stop-color="#d4a017"/>
+      <stop offset="100%" stop-color="#f0c840"/>
+    </linearGradient>
+    <linearGradient id="tile-shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#fff0d8" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tile 1 – red 7 -->
+  <rect x="3"  y="4"  width="28" height="28" rx="4" fill="url(#tile-shine)" filter="url(#ts)"/>
+  <rect x="3"  y="4"  width="28" height="28" rx="4" fill="none" stroke="#d4a017" stroke-width="1.2"/>
+  <text x="17" y="23" font-family="Arial Black,Arial,sans-serif" font-size="17" font-weight="900" fill="#e02020" text-anchor="middle">7</text>
+
+  <!-- Tile 2 – blue 3 -->
+  <rect x="35" y="4"  width="28" height="28" rx="4" fill="url(#tile-shine)" filter="url(#ts)"/>
+  <rect x="35" y="4"  width="28" height="28" rx="4" fill="none" stroke="#d4a017" stroke-width="1.2"/>
+  <text x="49" y="23" font-family="Arial Black,Arial,sans-serif" font-size="17" font-weight="900" fill="#1550d4" text-anchor="middle">3</text>
+
+  <!-- Tile 3 – orange 11 -->
+  <rect x="3"  y="36" width="28" height="28" rx="4" fill="url(#tile-shine)" filter="url(#ts)"/>
+  <rect x="3"  y="36" width="28" height="28" rx="4" fill="none" stroke="#d4a017" stroke-width="1.2"/>
+  <text x="17" y="55" font-family="Arial Black,Arial,sans-serif" font-size="13" font-weight="900" fill="#e07820" text-anchor="middle">11</text>
+
+  <!-- Tile 4 – black 5 -->
+  <rect x="35" y="36" width="28" height="28" rx="4" fill="url(#tile-shine)" filter="url(#ts)"/>
+  <rect x="35" y="36" width="28" height="28" rx="4" fill="none" stroke="#d4a017" stroke-width="1.2"/>
+  <text x="49" y="55" font-family="Arial Black,Arial,sans-serif" font-size="17" font-weight="900" fill="#1a1a1a" text-anchor="middle">5</text>
+
+  <!-- Divider line -->
+  <line x1="74" y1="10" x2="74" y2="58" stroke="rgba(212,160,23,0.35)" stroke-width="1"/>
+
+  <!-- Main title -->
+  <text x="84" y="37" font-family="Georgia,'Times New Roman',serif" font-size="30" font-weight="bold"
+        fill="url(#gld)" letter-spacing="2.5" dominant-baseline="middle">RUMMIKUB</text>
+
+  <!-- Tagline -->
+  <text x="86" y="56" font-family="Arial,sans-serif" font-size="9" font-weight="600"
+        fill="rgba(255,255,255,0.38)" letter-spacing="5">GAME  STORE</text>
+</svg>

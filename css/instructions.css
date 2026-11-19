@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Raleway:wght@400;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Raleway', sans-serif;
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(21,130,212,0.18) 0%, transparent 55%),
+        linear-gradient(160deg, #0d1020 0%, #1a1830 50%, #0d1020 100%);
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: min(480px, 92vw);
+    padding: 40px 36px 32px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px;
+    box-shadow: 0 0 40px rgba(21,130,212,0.1), 0 24px 60px rgba(0,0,0,0.55);
+    animation: fadeUp 0.5s cubic-bezier(0.22,1,0.36,1);
+}
+
+@keyframes fadeUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #c9a227;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: 16px;
+}
+
+#instructions-display {
+    min-height: 280px;
+    max-height: 320px;
+    overflow: hidden;
+    line-height: 1.9;
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
+    letter-spacing: 0.2px;
+}
+
+/* Typing cursor effect */
+#instructions-display::after {
+    content: '▋';
+    color: #c9a227;
+    animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+
+#play-btn {
+    padding: 14px;
+    border-radius: 12px;
+    font-family: 'Raleway', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background: rgba(201,162,39,0.12);
+    border: 1.5px solid #c9a227;
+    color: #f0d060;
+    width: 100%;
+}
+
+#play-btn:hover {
+    background: rgba(201,162,39,0.26);
+    box-shadow: 0 0 22px rgba(201,162,39,0.4);
+    transform: translateY(-2px);
+}
+
+.hidden { display: none; }

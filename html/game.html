@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/game.css">
+    <title>Rummikub</title>
+    <link rel="icon" type="image/x-icon" href="../images/redIcon.ico">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Raleway:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ── Top bar ─────────────────────────────────────────────────────── -->
+    <header id="topbar">
+        <img id="logo" src="../images/logo.svg" alt="Rummikub">
+
+        <div id="turn-banner">
+            <span id="turn-icon">♟</span>
+            <span id="turn-text">Your Turn</span>
+        </div>
+
+        <div id="deck-counter">
+            <i class="fa-solid fa-layer-group"></i>
+            <span id="deck-count">74</span>
+        </div>
+    </header>
+
+    <!-- ── Game board (injected by JS) ───────────────────────────────── -->
+    <main id="board-area"></main>
+
+    <!-- ── Bottom bar ────────────────────────────────────────────────── -->
+    <footer id="bottombar">
+
+        <!-- Players -->
+        <div id="players-panel">
+            <div class="player-slot" id="slot-human">
+                <div class="avatar-ring">
+                    <img src="../images/humanPlayer.jpg" alt="You" class="avatar">
+                    <div class="turn-pulse"></div>
+                </div>
+                <p class="player-label" id="human-name">You</p>
+                <p class="card-count" id="human-count">14 cards</p>
+            </div>
+
+            <div class="vs-badge">VS</div>
+
+            <div class="player-slot" id="slot-computer">
+                <div class="avatar-ring">
+                    <img src="../images/computerPlayer.jpg" alt="Bob" class="avatar">
+                    <div class="turn-pulse"></div>
+                </div>
+                <p class="player-label" id="computer-name">Bob</p>
+                <p class="card-count" id="computer-count">14 cards</p>
+            </div>
+        </div>
+
+        <!-- Player tray -->
+        <div id="tray-panel">
+            <p class="tray-label">Your Cards</p>
+            <div class="box"></div>
+        </div>
+
+        <!-- Action buttons -->
+        <div id="buttons-panel">
+            <button id="addCard" title="Draw a card">
+                <i class="fa-solid fa-plus"></i>
+                <span>Draw</span>
+            </button>
+            <button id="finishTurn" title="End turn">
+                <i class="fa-solid fa-check"></i>
+                <span>Done</span>
+            </button>
+        </div>
+
+    </footer>
+
+    <!-- ── Win / Lose overlay (fallback for file:// mode) ───────────── -->
+    <div id="end-overlay" class="overlay">
+        <div class="message-box">
+            <p id="end-title" style="font-size:28px;font-family:'Cinzel',serif;margin-bottom:8px"></p>
+            <p id="end-sub"   style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:20px"></p>
+            <div class="button-container">
+                <button onclick="window.location.href='home.html'">Home</button>
+                <button onclick="window.location.href='game.html'">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Message overlay ───────────────────────────────────────────── -->
+    <div id="overlay" class="overlay">
+        <div class="message-box">
+            <div class="message-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <p id="message-text"></p>
+            <div class="button-container">
+                <button id="right"></button>
+                <button id="left"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Scripts (dependency order) ───────────────────────────────── -->
+    <script src="../js/game-state.js"></script>
+    <script src="../js/game-render.js"></script>
+    <script src="../js/game-board.js"></script>
+    <script src="../js/game-validation.js"></script>
+    <script src="../js/game-algorithm.js"></script>
+    <script src="../js/game-ui.js"></script>
+    <script src="../js/game-main.js"></script>
+</body>
+</html>
