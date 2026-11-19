@@ -1,6 +1,9 @@
 // ─── Computer AI (logic only, no DOM) ────────────────────────────────────────
-// Moved as-is from game-algorithm.js. Only change: import COLORS + export functions.
+// Moved as-is from game-algorithm.js. Additions at the end of the file: the safety
+// net for the board size, and the joker pass (the original algorithm works on a
+// 4×13 matrix and does not know jokers, so they are handled around it).
 import { COLORS } from './tiles.js';
+import { isJoker, isValidSet, setPoints } from './rules.js';
 
 // ─── Based exactly on the original algorithm — 3 bugs fixed ──────────────────
 //
@@ -311,4 +314,60 @@ export function fitMoveOnBoard(hand, boardCards, sets, rows, cols) {
         board: placeSetsOnBoard(kept, rows, cols),
         remainingHand: computeRemainingHand(hand, boardCards, kept),
     };
+}
+
+// ═══ Jokers ═══════════════════════════════════════════════════════════════════
+// The original algorithm runs exactly as before, on the hand without jokers.
+// Then the joker pass:
+//   1. Each joker completes the most valuable "almost set" left in the hand: a pair
+//      of the same number (→ group) or of the same color 1–2 apart (→ run).
+//   2. Two jokers + one last tile → one set (the hand is empty: win).
+//   3. Only jokers left → add them to this move's sets (the hand is empty: win).
+// Otherwise jokers stay in the hand (they are not wasted on sets that are complete).
+// Returns { boardSets: the algorithm's sets, jokerSets: new sets with a joker }.
+export function findSetsWithJokers(hand, boardCards) {
+    const jokers = hand.filter(isJoker);
+    const { sets: boardSets } = matrixGreedyFindSets(hand.filter(t => !isJoker(t)), boardCards);
+    const rest = computeRemainingHand(hand.filter(t => !isJoker(t)), boardCards, boardSets);
+    const jokerSets = [];
+
+    // 1. Complete the most valuable pair
+    while (jokers.length > 0) {
+        const best = bestPairForJoker(rest, jokers[0]);
+        if (!best) break;
+        jokerSets.push(best.set);
+        for (const t of best.pair) rest.splice(rest.indexOf(t), 1);
+        jokers.shift();
+    }
+
+    // 2. Two jokers and one tile left
+    if (jokers.length === 2 && rest.length === 1)
+        jokerSets.push([rest.pop(), ...jokers.splice(0, 2)]);
+
+    // 3. Only jokers left: add each one to a set of this move
+    if (rest.length === 0) {
+        const sets = [...boardSets, ...jokerSets];
+        for (let k = jokers.length - 1; k >= 0; k--) {
+            for (const s of sets) {
+                const longer = [[...s, jokers[k]], [jokers[k], ...s]].find(isValidSet);
+                if (longer) { s.splice(0, s.length, ...longer); jokers.splice(k, 1); break; }
+            }
+        }
+    }
+    return { boardSets, jokerSets };
+}
+
+// The pair (a, b) from `tiles` that makes the most valuable valid set with the joker
+function bestPairForJoker(tiles, joker) {
+    let best = null;
+    for (let i = 0; i < tiles.length; i++)
+        for (let j = i + 1; j < tiles.length; j++) {
+            const [lo, hi] = tiles[i][1] <= tiles[j][1] ? [tiles[i], tiles[j]] : [tiles[j], tiles[i]];
+            for (const set of [[lo, hi, joker], [joker, lo, hi], [lo, joker, hi]]) {
+                if (!isValidSet(set)) continue;
+                const points = setPoints(set);
+                if (!best || points > best.points) best = { set, pair: [lo, hi], points };
+            }
+        }
+    return best;
 }

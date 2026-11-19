@@ -1,7 +1,7 @@
 // ─── Game state and turn logic (logic only, no DOM) ──────────────────────────
 import { shuffledDeck, drawCards } from './tiles.js';
 import { findInvalidSet, isJoker, setPoints } from './rules.js';
-import { matrixGreedyFindSets, fitMoveOnBoard, computeRemainingHand } from './ai.js';
+import { findSetsWithJokers, fitMoveOnBoard, computeRemainingHand } from './ai.js';
 
 // 7 rows: measured with the bot, the AI never needs more (even with all 104 tiles on
 // the board). Must match grid-template-rows in css/game.css.
@@ -214,23 +214,42 @@ export function applyComputerMove(state, boardCards) {
     }
 }
 
-// After the first meld: the AI rebuilds the whole board from board tiles + its hand.
+// After the first meld: the AI rebuilds the board from board tiles + its hand.
+// Sets with a joker on the board are locked: the AI cannot handle jokers on the
+// board, so they stay as they are and the AI rebuilds everything else.
 function fullMove(state, boardCards) {
-    const result = matrixGreedyFindSets(state.computerCards, boardCards);
-    // Safety net: only the part of the move that fits on the board (null = nothing fits)
-    return result.sets.length > 0
-        ? fitMoveOnBoard(state.computerCards, boardCards, result.sets, BOARD_ROWS, BOARD_COLS)
-        : null;
+    const segments = segmentsOf(state.gameBoard);
+    const locked = segments.filter(s => s.tiles.some(isJoker)).map(s => s.tiles);
+    const freeBoardCards = segments.filter(s => !s.tiles.some(isJoker)).flatMap(s => s.tiles);
+    const { boardSets, jokerSets } = findSetsWithJokers(state.computerCards, freeBoardCards);
+
+    if (boardSets.length > 0)
+        // Safety net: only the part of the move that fits on the board (null = nothing fits)
+        return fitMoveOnBoard(state.computerCards, boardCards, [...locked, ...boardSets, ...jokerSets],
+                              BOARD_ROWS, BOARD_COLS);
+    // The algorithm found nothing, but jokers made sets: add them next to the existing sets
+    return jokerSets.length > 0 ? setsInFreeSpace(state, jokerSets) : null;
 }
 
 // Before the first meld: the same AI, but it sees only its own hand (so it cannot
 // touch the board). Its sets go into free space next to the existing sets, and the
-// move counts only if the placed sets are worth 30+ points.
+// move counts only if the placed sets are worth 30+ points (jokers: the tile they stand for).
 function openingMove(state) {
-    const { sets } = matrixGreedyFindSets(state.computerCards, []);
+    const { boardSets, jokerSets } = findSetsWithJokers(state.computerCards, []);
+    const move = setsInFreeSpace(state, [...boardSets, ...jokerSets]);
+    if (!move || move.sets.reduce((sum, set) => sum + setPoints(set), 0) < OPENING_POINTS) return null;
+    return move;
+}
+
+// Adds the sets (all from the hand) next to the existing ones, without rearranging
+function setsInFreeSpace(state, sets) {
     const placed = addSetsInFreeSpace(state.gameBoard, sets);
-    if (placed.sets.reduce((sum, set) => sum + setPoints(set), 0) < OPENING_POINTS) return null;
-    return { board: placed.board, remainingHand: computeRemainingHand(state.computerCards, [], placed.sets) };
+    if (placed.sets.length === 0) return null;
+    return {
+        sets: placed.sets,
+        board: placed.board,
+        remainingHand: computeRemainingHand(state.computerCards, [], placed.sets),
+    };
 }
 
 // Puts each set into the first empty space with an empty cell (or the edge) on both
