@@ -6,7 +6,9 @@ import {
 } from './game-logic.js';
 import { render } from './game-render.js';
 import { setupBoard, setupTrayDrop } from './game-board.js';
-import { updateTurnIndicator, updateCardCounts, showMessageBox, setTurnStatus, setInputEnabled } from './game-ui.js';
+import { updateTurnIndicator, updateCardCounts, showMessageBox, setTurnStatus, setInputEnabled, showDebugHand } from './game-ui.js';
+import { explainPasses } from './ai.js';
+import { setPoints } from './rules.js';
 
 // ─── Computer turn timing (milliseconds) — change freely ─────────────────────
 // Only the display waits; the game logic (and the tests / bot) do not.
@@ -17,16 +19,46 @@ const MESSAGE_DELAY_MS    = 1500;   // how long "Computer drew a tile" / "... pa
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// Test modes (can be combined, e.g. game.html?smallDeck&jokers):
+// Test modes (can be combined, e.g. game.html?smallDeck&jokers&debug):
 //   ?smallDeck  the deck starts with only 5 tiles
 //   ?jokers     the player gets both jokers
+//   ?debug      shows the computer's hand, and logs every computer decision to the Console
 const SMALL_DECK_SIZE = 5;
+const DEBUG = new URLSearchParams(window.location.search).has('debug');
 
 let state = null;   // created in initGame
 
+// Every redraw goes through here, so ?debug can also show the computer's hand
+function draw(view) {
+    render(state, view);
+    if (DEBUG) showDebugHand(state.computerCards);
+}
+
 function restoreAndRender() {
     restoreState(state);
-    render(state);
+    draw();
+}
+
+// ─── ?debug: what the computer considered this turn ──────────────────────────
+const tileText = t => t[0] === 'joker' ? `J(${t[1]})` : `${t[0][0].toUpperCase()}${t[1]}`;
+const setsText = sets => sets.length ? sets.map(s => `[${s.map(tileText).join(' ')}]=${setPoints(s)}`).join(' ') : '(none)';
+
+function logComputerDecision(d) {
+    console.group(`[debug] Computer ${d.result}: ${d.reason}`);
+    console.log(`Hand (${d.hand.length}):`, d.hand.map(tileText).join(' '));
+    if (d.phase === 'first-meld') {
+        console.log('Before its first meld: the AI looks only at its hand.');
+        console.log('Sets it found:', setsText(d.found), `→ ${d.points} points (needs 30)`);
+    } else {
+        console.log('After its first meld: the AI rebuilds the board from board tiles + hand.');
+        if (d.locked.length) console.log('Locked sets (with a joker):', setsText(d.locked));
+        for (const p of explainPasses(d.hand.filter(t => t[0] !== 'joker'), d.freeBoardCards))
+            console.log(`Pass preferring ${p.preference}s:`, setsText(p.sets),
+                        `| hand tiles used: ${p.handTilesUsed} | keeps every board tile: ${p.keepsBoardTiles}`);
+        if (d.jokerSets.length) console.log('Sets with a joker from its hand:', setsText(d.jokerSets));
+    }
+    console.log('Played:', setsText(d.played));
+    console.groupEnd();
 }
 
 // ─── Show win / lose screen ───────────────────────────────────────────────────
@@ -78,13 +110,14 @@ async function computerTurn() {
         hand:  state.computerCards.length,
         deck:  state.remainingDeck.length,
     };
-    applyComputerMove(state, boardCardsOf(state.gameBoard));
+    const decision = applyComputerMove(state, boardCardsOf(state.gameBoard));
+    if (DEBUG) logComputerDecision(decision);
 
     const played = before.hand - state.computerCards.length;
     if (played > 0) {
         await showComputerSets(before.board, played);
     } else {
-        render(state);
+        draw();
         setTurnStatus(state.remainingDeck.length < before.deck
             ? 'Computer drew a tile'
             : 'Computer passes — the deck is empty');
@@ -92,7 +125,7 @@ async function computerTurn() {
     }
 
     const result = finishComputerTurn(state);
-    render(state);                                    // also removes the highlight
+    draw();                                    // also removes the highlight
     if (result === 'computer-won') { showEndScreen(false); return; }
     if (result === 'game-over')    { showBlockedGameEnd(); return; }
 
@@ -106,11 +139,11 @@ async function showComputerSets(beforeBoard, played) {
     const hidden = new Set(groups.flat());
     const highlighted = new Set();
     setTurnStatus(`Computer played ${played} tile${played === 1 ? '' : 's'}`);
-    render(state, { hidden, highlighted });
+    draw({ hidden, highlighted });
     for (const group of groups) {
         await wait(SET_REVEAL_DELAY_MS);
         for (const cell of group) { hidden.delete(cell); highlighted.add(cell); }
-        render(state, { hidden, highlighted });
+        draw({ hidden, highlighted });
     }
     await wait(AFTER_MOVE_DELAY_MS);
 }
@@ -199,7 +232,7 @@ function onFinishTurn() {
 // ─── Player draws (or passes, if the deck is empty) and ends turn ───────────
 function drawAndEndTurn() {
     const result = playerDraw(state);
-    render(state);
+    draw();
     updateCardCounts(state);
 
     if (result === 'game-over') { showBlockedGameEnd(); return; }
@@ -227,7 +260,7 @@ function initGame() {
 
     setupBoard(state);
     setupTrayDrop(state);
-    render(state);
+    draw();
     updateTurnIndicator(true);
     updateCardCounts(state);
     setInputEnabled(true);

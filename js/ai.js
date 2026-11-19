@@ -316,6 +316,20 @@ export function fitMoveOnBoard(hand, boardCards, sets, rows, cols) {
     };
 }
 
+// ─── For ?debug: what each of the algorithm's two passes found ───────────────
+export function explainPasses(hand, boardCards) {
+    const all = [...boardCards, ...hand];
+    return ['group', 'run'].map(preference => {
+        const sets = runOnePass(all, preference);
+        return {
+            preference,
+            sets,
+            handTilesUsed:   countHandUsed(hand, boardCards, sets),
+            keepsBoardTiles: allBoardCardsPresent(boardCards, sets),
+        };
+    });
+}
+
 // ═══ Jokers ═══════════════════════════════════════════════════════════════════
 // The original algorithm runs exactly as before, on the hand without jokers.
 // Then the joker pass:

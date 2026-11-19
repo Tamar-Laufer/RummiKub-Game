@@ -46,6 +46,21 @@ export function setInputEnabled(enabled) {
     }
 }
 
+// ─── ?debug: the computer's hand, always visible ─────────────────────────────
+const DEBUG_COLORS = { red: '#ff5a5a', black: '#dddddd', blue: '#6aa8ff', orange: '#ffb340', joker: '#f0d060' };
+
+export function showDebugHand(tiles) {
+    let panel = document.getElementById('debug-hand');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'debug-hand';
+        document.body.appendChild(panel);
+    }
+    const sorted = [...tiles].sort((a, b) => a[0].localeCompare(b[0]) || (a[1] > b[1] ? 1 : -1));
+    panel.innerHTML = `<b>DEBUG — Bob's hand (${tiles.length})</b><br>` + sorted.map(([color, num]) =>
+        `<span style="color:${DEBUG_COLORS[color] || '#fff'}">${color === 'joker' ? 'J' : num}</span>`).join(' ');
+}
+
 // ─── Card counts ─────────────────────────────────────────────────────────────
 export function updateCardCounts(state) {
     const hc = document.getElementById('human-count');

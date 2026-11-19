@@ -556,6 +556,21 @@ body.input-locked .card {
     to   { transform: scale(1);   opacity: 1; }
 }
 
+/* ── ?debug: the computer's hand ─────────────────────────────────────────────── */
+#debug-hand {
+    position: fixed;
+    top: 64px;
+    left: 12px;
+    max-width: 260px;
+    padding: 6px 9px;
+    border: 1px dashed var(--gold);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    font: 13px/1.6 monospace;
+    z-index: 50;
+}
+
 /* ── Joker card ──────────────────────────────────────────────────────────────── */
 /* Used together with .card (size comes from .card / .board-cell .card).
    The joker face image sits in the number circle. */

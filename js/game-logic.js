@@ -224,8 +224,13 @@ function endIfBlocked(state) {
 }
 
 // ─── Computer move (the AI in ai.js) ─────────────────────────────────────────
+// Returns a report of what the AI considered and why it played or drew (shown by
+// game.html?debug; the game itself does not need it).
 export function applyComputerMove(state, boardCards) {
-    const move = state.computerOpened ? fullMove(state, boardCards) : openingMove(state);
+    const hand = [...state.computerCards];
+    const decision = state.computerOpened ? fullMove(state, boardCards) : openingMove(state);
+    const { move } = decision;
+    const deckBefore = state.remainingDeck.length;
 
     if (move) {
         state.gameBoard      = move.board;
@@ -235,6 +240,12 @@ export function applyComputerMove(state, boardCards) {
     } else {
         drawOneCard(state);
     }
+    return {
+        ...decision,
+        hand,
+        result: move ? 'played' : state.remainingDeck.length < deckBefore ? 'drew' : 'passed',
+        played: move ? move.sets : [],
+    };
 }
 
 // After the first meld: the AI rebuilds the board from board tiles + its hand.
@@ -245,13 +256,21 @@ function fullMove(state, boardCards) {
     const locked = segments.filter(s => s.tiles.some(isJoker)).map(s => s.tiles);
     const freeBoardCards = segments.filter(s => !s.tiles.some(isJoker)).flatMap(s => s.tiles);
     const { boardSets, jokerSets } = findSetsWithJokers(state.computerCards, freeBoardCards);
+    const report = { phase: 'after-first-meld', locked, freeBoardCards, boardSets, jokerSets };
 
-    if (boardSets.length > 0)
+    if (boardSets.length > 0) {
         // Safety net: only the part of the move that fits on the board (null = nothing fits)
-        return fitMoveOnBoard(state.computerCards, boardCards, [...locked, ...boardSets, ...jokerSets],
-                              BOARD_ROWS, BOARD_COLS);
+        const move = fitMoveOnBoard(state.computerCards, boardCards, [...locked, ...boardSets, ...jokerSets],
+                                    BOARD_ROWS, BOARD_COLS);
+        return { ...report, move, reason: move ? 'rebuilt the board with its tiles' : 'its sets do not fit on the board' };
+    }
     // The algorithm found nothing, but jokers made sets: add them next to the existing sets
-    return jokerSets.length > 0 ? setsInFreeSpace(state, jokerSets) : null;
+    if (jokerSets.length > 0) {
+        const move = setsInFreeSpace(state, jokerSets);
+        return { ...report, move, reason: move ? 'added joker sets next to the others' : 'no room for its joker sets' };
+    }
+    return { ...report, move: null,
+             reason: 'the algorithm found no way to rebuild the board that keeps every board tile and plays a hand tile' };
 }
 
 // Before the first meld: the same AI, but it sees only its own hand (so it cannot
@@ -259,9 +278,15 @@ function fullMove(state, boardCards) {
 // move counts only if the placed sets are worth 30+ points (jokers: the tile they stand for).
 function openingMove(state) {
     const { boardSets, jokerSets } = findSetsWithJokers(state.computerCards, []);
-    const move = setsInFreeSpace(state, [...boardSets, ...jokerSets]);
-    if (!move || move.sets.reduce((sum, set) => sum + setPoints(set), 0) < OPENING_POINTS) return null;
-    return move;
+    const found = [...boardSets, ...jokerSets];
+    const move = setsInFreeSpace(state, found);
+    const points = move ? move.sets.reduce((sum, set) => sum + setPoints(set), 0) : 0;
+    const report = { phase: 'first-meld', found, points };
+    if (found.length === 0) return { ...report, move: null, reason: 'no sets in its hand' };
+    if (!move)              return { ...report, move: null, reason: 'no room on the board' };
+    if (points < OPENING_POINTS)
+        return { ...report, move: null, reason: `its sets are worth ${points}, the first meld needs ${OPENING_POINTS}` };
+    return { ...report, move, reason: `first meld worth ${points}` };
 }
 
 // Adds the sets (all from the hand) next to the existing ones, without rearranging
