@@ -29,6 +29,10 @@ import { isJoker, isValidSet, setPoints } from './rules.js';
 //      original went forward over doubles only, so a run with a double in
 //      the middle (R8 R9 R10 R10 R11) was cut. Fix: go forward over any 'r' card.
 //
+//   5. findColumnSets — second group:
+//      a single tile could go to a second group that never reached 3, so
+//      R8 R8 B8 K8 O8 gave only R8 B8 K8. Fix: give those tiles back to the first group.
+//
 // OPTIMISATION:
 //   Run with both preferences (prefer-group, prefer-run) and every order of the four
 //   colors (24) — 48 passes — and pick the result that removes the most points from
@@ -181,6 +185,10 @@ export function runOnePass(allCards, preference, colors = COLORS) {
                     else                       { arr1.push(j); cnt1++; }
                 }
             }
+            // FIX: a second group that stays below 3 gives its single tiles back to the first one
+            // (R8 R8 B8 K8 O8 gave R8 B8 K8 + R8 O8, and the group of 4 was cut to 3)
+            if (cnt2 > 0 && cnt2 < 3)
+                for (const j of arr2) if (!arr1.includes(j)) { arr1.push(j); cnt1++; }
             if (cnt1 > 2) pushColumnSet(arr1, i);
             if (cnt2 > 2) pushColumnSet(arr2, i);
         }

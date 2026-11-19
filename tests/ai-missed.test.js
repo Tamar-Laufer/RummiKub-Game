@@ -82,3 +82,11 @@ test('a run with a double tile in the middle is found in full', () => {
         assert.ok(sets.some(s => show(s) === run), `${hand}: expected ${run}, got ${sets.map(s => show(s)).join(' | ') || 'nothing'}`);
     }
 });
+// Bug D — seed 396, turn 4: a group of 4 where one tile is a double was cut to 3.
+// findColumnSets put O8 in a second group (R8 O8) that never got a third tile,
+// so R8 R8 B8 K8 O8 gave only R8 B8 K8 (24) and the computer could not open.
+test('a group of 4 with a double tile is found in full', () => {
+    const { sets } = matrixGreedyFindSets(tiles('R8 R8 B8 K8 O8'), []);
+    assert.ok(sets.some(s => s.length === 4 && s.every(t => t[1] === 8)),
+        `expected a group of four 8s, got ${sets.map(s => show(s)).join(' | ') || 'nothing'}`);
+});
