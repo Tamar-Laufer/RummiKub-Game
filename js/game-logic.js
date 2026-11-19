@@ -1,5 +1,5 @@
 // ─── Game state and turn logic (logic only, no DOM) ──────────────────────────
-import { shuffledDeck, drawCards } from './tiles.js';
+import { shuffledDeck, drawCards, JOKERS } from './tiles.js';
 import { findInvalidSet, isJoker, setPoints } from './rules.js';
 import { findSetsWithJokers, fitMoveOnBoard, computeRemainingHand } from './ai.js';
 
@@ -13,8 +13,11 @@ export function emptyBoard() {
 }
 
 // ─── The whole game state, in one object ─────────────────────────────────────
-// options.deckSize (test mode only): after dealing, keep only this many tiles in
-// the deck, so the end of the game is reached quickly. The other tiles leave the game.
+// Test modes (options):
+//   deckSize:     after dealing, keep only this many tiles in the deck, so the end of
+//                 the game is reached quickly. The other tiles leave the game.
+//   playerJokers: the player gets both jokers instead of two of their tiles (those go
+//                 where the jokers were: the deck or the computer's hand).
 export function createGame(random = Math.random, options = {}) {
     const remainingDeck = shuffledDeck(random);
     const state = {
@@ -34,9 +37,29 @@ export function createGame(random = Math.random, options = {}) {
         playerOpened:   false,
         computerOpened: false,
     };
+    if (options.playerJokers) giveJokersToPlayer(state);
     if (options.deckSize !== undefined) remainingDeck.splice(options.deckSize);
     saveState(state);
     return state;
+}
+
+function giveJokersToPlayer(state) {
+    const sameTile = (a, b) => a[0] === b[0] && a[1] === b[1];
+    for (const joker of JOKERS) {
+        if (state.playerCards.some(t => sameTile(t, joker))) continue;
+        // give away the player's last tile that is not a joker
+        const k = state.playerCards.findLastIndex(t => !isJoker(t));
+        const given = state.playerCards.splice(k, 1)[0];
+        const from = [state.remainingDeck, state.computerCards].find(list => list.some(t => sameTile(t, joker)));
+        if (from) {
+            const i = from.findIndex(t => sameTile(t, joker));
+            state.playerCards.push(from[i]);
+            from[i] = given;
+        } else {                                   // jokers not in the deck yet
+            state.playerCards.push([...joker]);
+            state.remainingDeck.push(given);
+        }
+    }
 }
 
 // ─── Save / Restore ───────────────────────────────────────────────────────────

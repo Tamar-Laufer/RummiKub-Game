@@ -8,7 +8,9 @@ import { render } from './game-render.js';
 import { setupBoard, setupTrayDrop } from './game-board.js';
 import { updateTurnIndicator, updateCardCounts, showMessageBox } from './game-ui.js';
 
-// Test mode: open game.html?smallDeck and the deck starts with only 5 tiles
+// Test modes (can be combined, e.g. game.html?smallDeck&jokers):
+//   ?smallDeck  the deck starts with only 5 tiles
+//   ?jokers     the player gets both jokers
 const SMALL_DECK_SIZE = 5;
 
 let state = null;   // created in initGame
@@ -140,8 +142,11 @@ function initGame() {
         if (nameEl) nameEl.textContent = currentUser.username;
     }
 
-    const smallDeck = new URLSearchParams(window.location.search).has('smallDeck');
-    state = createGame(Math.random, smallDeck ? { deckSize: SMALL_DECK_SIZE } : {});
+    const params = new URLSearchParams(window.location.search);
+    const options = {};
+    if (params.has('smallDeck')) options.deckSize = SMALL_DECK_SIZE;
+    if (params.has('jokers'))    options.playerJokers = true;
+    state = createGame(Math.random, options);
 
     setupBoard(state);
     setupTrayDrop(state);

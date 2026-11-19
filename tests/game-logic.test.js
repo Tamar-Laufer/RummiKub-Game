@@ -34,6 +34,15 @@ test('test mode deckSize: 5 keeps only 5 tiles in the deck, hands unchanged', ()
     assert.equal(state.remainingDeck.length, 5);
 });
 
+test('test mode playerJokers: the player gets both jokers, no tile is lost', () => {
+    const state = createGame(Math.random, { playerJokers: true });
+    assert.equal(state.playerCards.length, 14);
+    assert.equal(state.playerCards.filter(t => t[0] === 'joker').length, 2);
+    const all = [...state.playerCards, ...state.computerCards, ...state.remainingDeck];
+    assert.equal(all.length, 106, '104 tiles + 2 jokers');
+    assert.equal(all.filter(t => t[0] === 'joker').length, 2, 'each joker exactly once');
+});
+
 test('player draws one tile while the deck has tiles', () => {
     const state = createGame();
     const before = state.playerCards.length;

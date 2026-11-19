@@ -1,8 +1,11 @@
 // ─── Tiles: deck creation, shuffle and draw (logic only, no DOM) ─────────────
 export const COLORS = ['red', 'black', 'blue', 'orange'];
 
+// ─── Jokers: a red one and a black one (see isJoker in rules.js) ─────────────
+// Not in the deck yet (next step); the ?jokers test mode deals them to the player.
+export const JOKERS = [['joker', 'red'], ['joker', 'black']];
+
 // ─── Full deck (2 copies × 4 colors × 13 numbers) ────────────────────────────
-// No jokers yet (known issue in CLAUDE.md)
 export const FULL_DECK = [];
 for (const color of COLORS)
     for (let copy = 0; copy < 2; copy++)

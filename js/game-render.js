@@ -1,10 +1,13 @@
 // ─── Rendering (DOM) ──────────────────────────────────────────────────────────
 import { BOARD_ROWS, BOARD_COLS } from './game-logic.js';
 import { updateCardCounts } from './game-ui.js';
+import { isJoker } from './rules.js';
 
 const COLOR_HEX = { red: '#FF0000', black: '#000000', blue: '#0000FF', orange: '#FFA500' };
+const JOKER_IMAGE = { red: '../images/redJocker.png', black: '../images/blackJocker.png' };
 
 // ─── Card element ─────────────────────────────────────────────────────────────
+// A joker looks like a regular tile with the joker face (red or black) in the circle
 function createCardEl(card, id) {
     const el = document.createElement('div');
     el.className = 'card';
@@ -12,8 +15,18 @@ function createCardEl(card, id) {
     el.draggable = true;
 
     const numSpan = document.createElement('span');
-    numSpan.textContent = card[1];
-    numSpan.style.color = COLOR_HEX[card[0]] || '#000';
+    if (isJoker(card)) {
+        el.classList.add('card-joker');
+        el.title = 'Joker';
+        const face = document.createElement('img');
+        face.src = JOKER_IMAGE[card[1]];
+        face.alt = 'Joker';
+        face.draggable = false;          // drag the whole tile, not the image
+        numSpan.appendChild(face);
+    } else {
+        numSpan.textContent = card[1];
+        numSpan.style.color = COLOR_HEX[card[0]] || '#000';
+    }
 
     const hiddenColor = document.createElement('span');
     hiddenColor.textContent = card[0];
