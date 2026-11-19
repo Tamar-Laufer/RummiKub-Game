@@ -227,7 +227,12 @@ function checkTurn(before, state, actor, outcome, opened, report) {
     if (minus(state[otherKey], before[otherKey]).length || minus(before[otherKey], state[otherKey]).length)
         report('other-hand-changed', `the ${actor}'s turn changed the other player's hand`);
 
-    // 5. The turn really passed to the other player
+    // 5. Every tile that was on the board at the start of the turn is still on the board
+    const removed = minus(boardCardsOf(before.board), boardCardsOf(state.gameBoard));
+    if (removed.length)
+        report('board-tile-removed', `the ${actor}'s turn removed tiles from the board: ${showTiles(removed)}`);
+
+    // 6. The turn really passed to the other player
     if ((outcome === 'ok' || outcome === 'passed') && state.isPlayerTurn !== (actor === 'computer'))
         report('turn-not-passed', `after the ${actor}'s turn, isPlayerTurn is ${state.isPlayerTurn}`);
 }
@@ -416,6 +421,7 @@ const PROBLEMS = {
     'opening-under-30':         'First meld worth less than 30 points',
     'opening-touched-board':    'First meld used/changed tiles already on the board',
     'board-tile-to-hand':       'A board tile went back to a hand',
+    'board-tile-removed':       'A tile on the board at turn start was gone at turn end',
     'other-hand-changed':       "A turn changed the other player's hand",
     'turn-not-passed':          'Turn did not pass to the other player',
     'ai-slow':                  'AI took longer than --slow-ms',

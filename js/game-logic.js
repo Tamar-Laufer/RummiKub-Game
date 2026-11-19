@@ -107,12 +107,30 @@ export function openingMeldPoints(state) {
     return handValue(added.flatMap(s => s.tiles));
 }
 
+// ═══ Board tiles stay on the board ════════════════════════════════════════════
+// Tiles that were on the board at the start of the player's turn (savedBoard) but
+// are not on the board now — i.e. dragged back to the tray. Compared by color and
+// number, since two identical tiles are interchangeable. Tiles placed this turn are
+// not in savedBoard, so taking them back is fine.
+export function boardTilesTaken(state) {
+    const left = new Map();
+    for (const t of boardCardsOf(state.gameBoard)) left.set(t.join('-'), (left.get(t.join('-')) || 0) + 1);
+    const taken = [];
+    for (const t of boardCardsOf(state.savedBoard)) {
+        const k = t.join('-');
+        if (left.get(k) > 0) left.set(k, left.get(k) - 1);
+        else taken.push(t);
+    }
+    return taken;
+}
+
 // ═══ Turn logic ═══════════════════════════════════════════════════════════════
 // Moved from game-main.js. Same decisions; each function returns a result string
 // and game-main.js shows the matching message / screen.
 
 // ─── End of player's turn ─────────────────────────────────────────────────────
 // 'no-move'               — nothing changed; player must play a tile or draw
+// 'board-tile-taken'      — a tile that was on the board went back to the tray (see boardTilesTaken)
 // 'invalid'               — the board is not valid (UI offers Try Again / Take a Card)
 // 'opening-touched-board' — first meld, but a set already on the board was changed/moved
 // 'opening-too-low'       — first meld worth less than 30 (see openingMeldPoints)
@@ -121,6 +139,8 @@ export function openingMeldPoints(state) {
 export function endPlayerTurn(state) {
     if (boardMatchesSaved(state) && state.playerCards.length >= state.savedPlayer.length)
         return 'no-move';
+    if (boardTilesTaken(state).length > 0)
+        return 'board-tile-taken';
     if (!isBoardValid(state.gameBoard))
         return 'invalid';
     if (!state.playerOpened) {

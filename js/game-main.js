@@ -1,7 +1,7 @@
 // ─── Entry point: connects the game logic to the page ───────────────────────
 // Turn decisions live in game-logic.js; this file does only DOM and timing.
 import {
-    createGame, restoreState, boardCardsOf, handValue, openingMeldPoints, OPENING_POINTS,
+    createGame, restoreState, boardCardsOf, handValue, openingMeldPoints, OPENING_POINTS, boardTilesTaken,
     endPlayerTurn, playerDraw, applyComputerMove, finishComputerTurn
 } from './game-logic.js';
 import { render } from './game-render.js';
@@ -89,6 +89,9 @@ function onFinishTurn() {
     }
 
     const rejected = {
+        'board-tile-taken':
+            'Tiles that were on the board when your turn started must stay on the board. You took: ' +
+            boardTilesTaken(state).map(([color, num]) => `${color} ${num}`).join(', ') + '.',
         'invalid':
             'Invalid move — the board is not valid.',
         'opening-too-low':

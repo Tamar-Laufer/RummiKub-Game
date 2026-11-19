@@ -3,38 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as logic from '../js/game-logic.js';
+import { tiles, show, put, rowText, playerTurn, drag } from './helpers.js';
 
-const { createGame, emptyBoard, saveState, endPlayerTurn, applyComputerMove, boardCardsOf } = logic;
-
-// Short tile notation: R=red K=black B=blue O=orange
-const COLOR = { R: 'red', K: 'black', B: 'blue', O: 'orange' };
-const tiles = text => text.split(' ').map(t => [COLOR[t[0]], Number(t.slice(1))]);
-const show = list => list.map(t => Object.keys(COLOR).find(k => COLOR[k] === t[0]) + t[1]).join(' ');
-
-function put(board, row, col, text) {
-    tiles(text).forEach((t, i) => { board[row][col + i] = t; });
-}
-const rowText = (board, row, from, to) => show(board[row].slice(from, to).filter(Boolean));
-
-// Player's turn: given hand, given board sets [row, col, text]; snapshot = start of turn
-function playerTurn(hand, boardSets = []) {
-    const state = createGame();
-    state.playerCards = tiles(hand);
-    state.gameBoard = emptyBoard();
-    for (const [row, col, text] of boardSets) put(state.gameBoard, row, col, text);
-    state.isPlayerTurn = true;
-    saveState(state);
-    return state;
-}
-
-// Same as dragging tiles from the tray to board cells (row, col), (row, col+1), ...
-function drag(state, row, col, text) {
-    for (const t of tiles(text)) {
-        const i = state.playerCards.findIndex(x => x[0] === t[0] && x[1] === t[1]);
-        assert.ok(i >= 0, `tile ${t} must be in the hand`);
-        state.gameBoard[row][col++] = state.playerCards.splice(i, 1)[0];
-    }
-}
+const { createGame, emptyBoard, endPlayerTurn, applyComputerMove, boardCardsOf } = logic;
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 
