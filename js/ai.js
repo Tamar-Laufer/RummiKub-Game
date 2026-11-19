@@ -25,6 +25,10 @@ import { isJoker, isValidSet, setPoints } from './rules.js';
 //      original did tempMat1[x]-- which turns 'r'/'c' into NaN.
 //      Fix: only reset tm1 to 0 when count drops to 0.
 //
+//   4. findRowSets Pass A — forward loop:
+//      original went forward over doubles only, so a run with a double in
+//      the middle (R8 R9 R10 R10 R11) was cut. Fix: go forward over any 'r' card.
+//
 // OPTIMISATION:
 //   Run with both preferences (prefer-group, prefer-run) and every order of the four
 //   colors (24) — 48 passes — and pick the result that removes the most points from
@@ -134,9 +138,10 @@ export function runOnePass(allCards, preference, colors = COLORS) {
                     if (tm1[i][k] === 'r' && tm[i][k] > 0) arr.unshift(k);
                     else break;
                 }
-                // Forward from j+1 (doubles only, original behaviour)
+                // Forward from j+1 — FIX: also over single copies (the original took doubles
+                // only, so a run with a double in the middle, R8 R9 R10 R10 R11, was cut)
                 for (let k = j + 1; k < 13; k++) {
-                    if (tm1[i][k] === 'r' && tm[i][k] >= 2) arr.push(k);
+                    if (tm1[i][k] === 'r' && tm[i][k] > 0) arr.push(k);
                     else break;
                 }
                 if (arr.length > 2) pushRowSet(arr, i);

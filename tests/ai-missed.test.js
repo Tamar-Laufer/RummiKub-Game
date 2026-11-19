@@ -72,3 +72,13 @@ test('the algorithm keeps the color order that removes the most points', () => {
     const removed = handValue(hand) - handValue(remainingHand);
     assert.ok(removed >= 33, `only ${removed} points: ${sets.map(s => show(s)).join(' | ')}`);
 });
+
+// Bug C — seed 229, turn 12: a run with a double tile in the middle was cut.
+// findRowSets Pass A only went forward over doubles, so R8 R9 R10 R10 R11 gave only R8-R10,
+// and B10 B11 B11 B12 B13 gave nothing.
+test('a run with a double tile in the middle is found in full', () => {
+    for (const [hand, run] of [['R8 R9 R10 R10 R11', 'R8 R9 R10 R11'], ['B10 B11 B11 B12 B13', 'B10 B11 B12 B13']]) {
+        const { sets } = matrixGreedyFindSets(tiles(hand), []);
+        assert.ok(sets.some(s => show(s) === run), `${hand}: expected ${run}, got ${sets.map(s => show(s)).join(' | ') || 'nothing'}`);
+    }
+});
