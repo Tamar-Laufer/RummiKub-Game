@@ -94,6 +94,8 @@ function onFinishTurn() {
             boardTilesTaken(state).map(([color, num]) => `${color} ${num}`).join(', ') + '.',
         'invalid':
             'Invalid move — the board is not valid.',
+        'invalid-run-order':
+            'Runs must go in increasing order from left to right.',
         'opening-too-low':
             `Your first meld must be worth at least ${OPENING_POINTS} points. You placed ${openingMeldPoints(state)}.`,
         'opening-touched-board':

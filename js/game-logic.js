@@ -1,6 +1,6 @@
 // ─── Game state and turn logic (logic only, no DOM) ──────────────────────────
 import { shuffledDeck, drawCards } from './tiles.js';
-import { isBoardValid } from './rules.js';
+import { findInvalidSet } from './rules.js';
 import { matrixGreedyFindSets, fitMoveOnBoard, computeRemainingHand } from './ai.js';
 
 // 7 rows: measured with the bot, the AI never needs more (even with all 104 tiles on
@@ -131,6 +131,7 @@ export function boardTilesTaken(state) {
 // ─── End of player's turn ─────────────────────────────────────────────────────
 // 'no-move'               — nothing changed; player must play a tile or draw
 // 'board-tile-taken'      — a tile that was on the board went back to the tray (see boardTilesTaken)
+// 'invalid-run-order'     — a run is not in increasing order from left to right
 // 'invalid'               — the board is not valid (UI offers Try Again / Take a Card)
 // 'opening-touched-board' — first meld, but a set already on the board was changed/moved
 // 'opening-too-low'       — first meld worth less than 30 (see openingMeldPoints)
@@ -141,8 +142,9 @@ export function endPlayerTurn(state) {
         return 'no-move';
     if (boardTilesTaken(state).length > 0)
         return 'board-tile-taken';
-    if (!isBoardValid(state.gameBoard))
-        return 'invalid';
+    const invalidSet = findInvalidSet(state.gameBoard);
+    if (invalidSet)
+        return invalidSet.reason === 'run-order' ? 'invalid-run-order' : 'invalid';
     if (!state.playerOpened) {
         if (touchedBoardSets(state)) return 'opening-touched-board';
         if (openingMeldPoints(state) < OPENING_POINTS) return 'opening-too-low';
