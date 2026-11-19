@@ -262,15 +262,53 @@ export function allBoardCardsPresent(boardCards, sets) {
     return true;
 }
 
-// ─── Place sets onto the 5×22 board ──────────────────────────────────────────
-export function placeSetsOnBoard(sets) {
-    const board = Array(5).fill(null).map(() => Array(22).fill(null));
+// ─── Do the sets fit on a rows×cols board? ───────────────────────────────────
+// Same packing as placeSetsOnBoard: sets in order, an empty cell between sets,
+// a new row when the next set does not fit in the current one.
+export function setsFit(sets, rows, cols) {
     let r = 0, c = 0;
     for (const s of sets) {
-        if (c + s.length > 22) { r++; c = 0; }
-        if (r >= 5) break;
+        if (c + s.length > cols) { r++; c = 0; }
+        if (r >= rows) return false;
+        c += s.length;
+        if (c < cols) c++;
+    }
+    return true;
+}
+
+// ─── Place sets onto the rows×cols board ─────────────────────────────────────
+// Only call with sets that fit (see setsFit / fitMoveOnBoard). It used to skip the
+// sets that did not fit, and their tiles disappeared from the game.
+export function placeSetsOnBoard(sets, rows, cols) {
+    const board = Array(rows).fill(null).map(() => Array(cols).fill(null));
+    let r = 0, c = 0;
+    for (const s of sets) {
+        if (c + s.length > cols) { r++; c = 0; }
+        if (r >= rows) throw new Error('placeSetsOnBoard: the sets do not fit on the board');
         s.forEach(card => { board[r][c++] = card; });
-        if (c < 22) c++;
+        if (c < cols) c++;
     }
     return board;
+}
+
+// ─── Safety net: make the AI's move fit on the board ─────────────────────────
+// The AI rebuilds the whole board (board tiles + its own tiles). If its sets do not
+// fit, drop sets from the end of its list — but never a set that is needed to keep
+// every board tile on the board. Hand tiles of dropped sets stay in the hand.
+// Returns { sets, board, remainingHand }, or null when there is no move that fits
+// (then the computer draws / passes). When everything fits, nothing changes.
+export function fitMoveOnBoard(hand, boardCards, sets, rows, cols) {
+    const kept = [...sets];
+    while (!setsFit(kept, rows, cols)) {
+        let i = kept.length - 1;
+        while (i >= 0 && !allBoardCardsPresent(boardCards, kept.filter((_, j) => j !== i))) i--;
+        if (i < 0) return null;           // even the sets with board tiles do not fit
+        kept.splice(i, 1);
+    }
+    if (countHandUsed(hand, boardCards, kept) === 0) return null;   // nothing left to play from the hand
+    return {
+        sets: kept,
+        board: placeSetsOnBoard(kept, rows, cols),
+        remainingHand: computeRemainingHand(hand, boardCards, kept),
+    };
 }
