@@ -2,10 +2,13 @@
 import assert from 'node:assert/strict';
 import { createGame, emptyBoard, saveState } from '../js/game-logic.js';
 
-// Short tile notation: R=red K=black B=blue O=orange, e.g. tiles('R1 R2 R3')
+// Short tile notation: R=red K=black B=blue O=orange, J=red joker, j=black joker,
+// e.g. tiles('R1 J R3')
 export const COLOR = { R: 'red', K: 'black', B: 'blue', O: 'orange' };
-export const tiles = text => text.split(' ').map(t => [COLOR[t[0]], Number(t.slice(1))]);
-export const show = list => list.map(t => Object.keys(COLOR).find(k => COLOR[k] === t[0]) + t[1]).join(' ');
+export const tiles = text => text.split(' ').map(t =>
+    t === 'J' ? ['joker', 'red'] : t === 'j' ? ['joker', 'black'] : [COLOR[t[0]], Number(t.slice(1))]);
+export const show = list => list.map(t =>
+    t[0] === 'joker' ? (t[1] === 'red' ? 'J' : 'j') : Object.keys(COLOR).find(k => COLOR[k] === t[0]) + t[1]).join(' ');
 
 // Put a set on the board from (row, col) to the right
 export function put(board, row, col, text) {

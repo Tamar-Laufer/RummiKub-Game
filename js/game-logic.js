@@ -1,6 +1,6 @@
 // ─── Game state and turn logic (logic only, no DOM) ──────────────────────────
 import { shuffledDeck, drawCards } from './tiles.js';
-import { findInvalidSet } from './rules.js';
+import { findInvalidSet, isJoker, setPoints } from './rules.js';
 import { matrixGreedyFindSets, fitMoveOnBoard, computeRemainingHand } from './ai.js';
 
 // 7 rows: measured with the bot, the AI never needs more (even with all 104 tiles on
@@ -100,11 +100,12 @@ function touchedBoardSets(state) {
     return segmentsOf(state.savedBoard).some(s => !now.has(segmentKey(s)));
 }
 
-// Points of the sets the player added this turn (the sets already on the board don't count)
+// Points of the sets the player added this turn (the sets already on the board don't
+// count). A joker counts as the tile it stands for (setPoints).
 export function openingMeldPoints(state) {
     const before = new Set(segmentsOf(state.savedBoard).map(segmentKey));
     const added = segmentsOf(state.gameBoard).filter(s => !before.has(segmentKey(s)));
-    return handValue(added.flatMap(s => s.tiles));
+    return added.reduce((sum, s) => sum + setPoints(s.tiles), 0);
 }
 
 // ═══ Board tiles stay on the board ════════════════════════════════════════════
@@ -183,9 +184,11 @@ function drawOneCard(state) {
 }
 
 // ─── Blocked game: deck empty and nobody can play ────────────────────────────
-// Rule: the player with the lowest sum of tiles in hand wins.
+// Rule: the player with the lowest sum of tiles in hand wins. A joker in the hand counts 30.
+export const JOKER_HAND_VALUE = 30;
+
 export function handValue(tiles) {
-    return tiles.reduce((sum, t) => sum + t[1], 0);
+    return tiles.reduce((sum, t) => sum + (isJoker(t) ? JOKER_HAND_VALUE : t[1]), 0);
 }
 
 // Passes are only counted while the deck is empty, so two in a row means both
@@ -226,7 +229,7 @@ function fullMove(state, boardCards) {
 function openingMove(state) {
     const { sets } = matrixGreedyFindSets(state.computerCards, []);
     const placed = addSetsInFreeSpace(state.gameBoard, sets);
-    if (handValue(placed.sets.flat()) < OPENING_POINTS) return null;
+    if (placed.sets.reduce((sum, set) => sum + setPoints(set), 0) < OPENING_POINTS) return null;
     return { board: placed.board, remainingHand: computeRemainingHand(state.computerCards, [], placed.sets) };
 }
 
