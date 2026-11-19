@@ -248,29 +248,46 @@ export function applyComputerMove(state, boardCards) {
     };
 }
 
-// After the first meld: the AI rebuilds the board from board tiles + its hand.
-// Sets with a joker on the board are locked: the AI cannot handle jokers on the
-// board, so they stay as they are and the AI rebuilds everything else.
+// After the first meld the computer has two options, and plays the one that removes
+// more points from its hand (a tie keeps the rebuild):
+//   1. Rebuild: the AI rebuilds the board from board tiles + its hand. Sets with a
+//      joker on the board are locked (the AI cannot handle jokers on the board), so
+//      they stay as they are and the AI rebuilds everything else.
+//   2. Hand only: sets from its hand, put into free space without touching the board
+//      (like the first meld). This is also the way out when no rebuild keeps every
+//      board tile — before, the computer then drew although it could play.
 function fullMove(state, boardCards) {
+    const hand = state.computerCards;
     const segments = segmentsOf(state.gameBoard);
     const locked = segments.filter(s => s.tiles.some(isJoker)).map(s => s.tiles);
     const freeBoardCards = segments.filter(s => !s.tiles.some(isJoker)).flatMap(s => s.tiles);
-    const { boardSets, jokerSets } = findSetsWithJokers(state.computerCards, freeBoardCards);
-    const report = { phase: 'after-first-meld', locked, freeBoardCards, boardSets, jokerSets };
 
-    if (boardSets.length > 0) {
+    // Option 1: rebuild
+    const { boardSets, jokerSets } = findSetsWithJokers(hand, freeBoardCards);
+    let rebuild = null;
+    if (boardSets.length > 0)
         // Safety net: only the part of the move that fits on the board (null = nothing fits)
-        const move = fitMoveOnBoard(state.computerCards, boardCards, [...locked, ...boardSets, ...jokerSets],
-                                    BOARD_ROWS, BOARD_COLS);
-        return { ...report, move, reason: move ? 'rebuilt the board with its tiles' : 'its sets do not fit on the board' };
-    }
-    // The algorithm found nothing, but jokers made sets: add them next to the existing sets
-    if (jokerSets.length > 0) {
-        const move = setsInFreeSpace(state, jokerSets);
-        return { ...report, move, reason: move ? 'added joker sets next to the others' : 'no room for its joker sets' };
-    }
-    return { ...report, move: null,
-             reason: 'the algorithm found no way to rebuild the board that keeps every board tile and plays a hand tile' };
+        rebuild = fitMoveOnBoard(hand, boardCards, [...locked, ...boardSets, ...jokerSets], BOARD_ROWS, BOARD_COLS);
+    else if (jokerSets.length > 0)
+        rebuild = setsInFreeSpace(state, jokerSets);
+
+    // Option 2: sets from the hand only
+    const own = findSetsWithJokers(hand, []);
+    const handOnly = setsInFreeSpace(state, [...own.boardSets, ...own.jokerSets]);
+
+    const removed = move => move ? handValue(hand) - handValue(move.remainingHand) : 0;
+    const options = { rebuild: removed(rebuild), handOnly: removed(handOnly) };
+    const report = { phase: 'after-first-meld', locked, freeBoardCards, boardSets, jokerSets,
+                     handOnlySets: handOnly ? handOnly.sets : [], options };
+
+    if (!rebuild && !handOnly)
+        return { ...report, move: null, reason: 'no set it can play: no rebuild keeps every board tile, and no set in its hand fits' };
+    if (options.handOnly > options.rebuild)
+        return { ...report, move: handOnly, chose: 'hand-only',
+                 reason: `put sets from its hand next to the others (removes ${options.handOnly} points` +
+                         (rebuild ? `; rebuilding would remove ${options.rebuild})` : '; no rebuild keeps every board tile)') };
+    return { ...report, move: rebuild, chose: 'rebuild',
+             reason: `rebuilt the board (removes ${options.rebuild} points; hand only would remove ${options.handOnly})` };
 }
 
 // Before the first meld: the same AI, but it sees only its own hand (so it cannot

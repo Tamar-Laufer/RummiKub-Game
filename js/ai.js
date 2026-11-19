@@ -26,10 +26,15 @@ import { isJoker, isValidSet, setPoints } from './rules.js';
 //      Fix: only reset tm1 to 0 when count drops to 0.
 //
 // OPTIMISATION:
-//   Run twice (prefer-group, prefer-run) → pick the result that plays more
-//   hand cards while keeping every board card.
+//   Run with both preferences (prefer-group, prefer-run) and every order of the four
+//   colors (24) — 48 passes — and pick the result that removes the most points from
+//   the hand while keeping every board card (see matrixGreedyFindSets).
+//   The color order matters because findSetsOfThree locks a set of 3 as soon as it
+//   sees one: with red first, R5 B5 O5 can be locked before the runs B3-B6 / O3-O5
+//   are seen.
 
-export function runOnePass(allCards, preference) {
+// colors: the order in which the matrix rows (colors) are scanned
+export function runOnePass(allCards, preference, colors = COLORS) {
 
     // ── Build matrices (same as copyTempMatrix + addCardsToMatrix) ────────────
     const tm  = Array(4).fill(null).map(() => Array(13).fill(0));  // counts
@@ -37,7 +42,7 @@ export function runOnePass(allCards, preference) {
     const sets = [];
 
     for (const [color, num] of allCards) {
-        const ci = COLORS.indexOf(color);
+        const ci = colors.indexOf(color);
         if (ci >= 0 && num >= 1 && num <= 13) tm[ci][num - 1]++;
     }
     // tm1 starts as numeric copy of tm (original copyTempMatrix behaviour)
@@ -72,7 +77,7 @@ export function runOnePass(allCards, preference) {
 
     // ── pushColumnSet — FIX: don't decrement tm1 if it's a string ────────────
     function pushColumnSet(arrColors, column) {
-        sets.push(arrColors.map(ci => [COLORS[ci], column + 1]));
+        sets.push(arrColors.map(ci => [colors[ci], column + 1]));
         for (const ci of arrColors) {
             tm[ci][column]--;
             if (tm[ci][column] === 0) tm1[ci][column] = 0;
@@ -81,7 +86,7 @@ export function runOnePass(allCards, preference) {
 
     // ── pushRowSet — FIX: don't decrement tm1 if it's a string ───────────────
     function pushRowSet(arrNums, row) {
-        sets.push(arrNums.map(ni => [COLORS[row], ni + 1]));
+        sets.push(arrNums.map(ni => [colors[row], ni + 1]));
         for (const ni of arrNums) {
             tm[row][ni]--;
             if (tm[row][ni] === 0) tm1[row][ni] = 0;
@@ -232,28 +237,46 @@ export function computeRemainingHand(hand, boardCards, sets) {
     return remaining;
 }
 
-// ─── Main entry point ─────────────────────────────────────────────────────────
-export function matrixGreedyFindSets(hand, boardCards) {
+// ─── All 24 orders of the four colors (the first one is the original order) ──
+function permutations(list) {
+    if (list.length <= 1) return [list];
+    return list.flatMap((x, i) => permutations([...list.slice(0, i), ...list.slice(i + 1)]).map(p => [x, ...p]));
+}
+const COLOR_ORDERS = permutations(COLORS);
+const handPoints = tiles => tiles.reduce((sum, t) => sum + t[1], 0);
+
+// ─── Every pass: 2 preferences × 24 color orders = 48 ────────────────────────
+// Valid = preserves board cards AND plays at least 1 hand card.
+// points = how many points it removes from the hand.
+export function allPasses(hand, boardCards) {
     const allCards = [...boardCards, ...hand];
+    const passes = [];
+    for (const preference of ['group', 'run'])
+        for (const colors of COLOR_ORDERS) {
+            const sets = runOnePass(allCards, preference, colors);
+            const handTilesUsed   = countHandUsed(hand, boardCards, sets);
+            const keepsBoardTiles = allBoardCardsPresent(boardCards, sets);
+            const valid = handTilesUsed > 0 && keepsBoardTiles;
+            const remainingHand = valid ? computeRemainingHand(hand, boardCards, sets) : null;
+            passes.push({ preference, colors, sets, handTilesUsed, keepsBoardTiles, valid, remainingHand,
+                          points: valid ? handPoints(hand) - handPoints(remainingHand) : 0 });
+        }
+    return passes;
+}
 
-    // Run twice — once preferring groups, once preferring runs
-    const setsG = runOnePass(allCards, 'group');
-    const setsR = runOnePass(allCards, 'run');
-
-    const usedG = countHandUsed(hand, boardCards, setsG);
-    const usedR = countHandUsed(hand, boardCards, setsR);
-
-    // Valid = preserves board cards AND plays at least 1 hand card
-    const validG = usedG > 0 && allBoardCardsPresent(boardCards, setsG);
-    const validR = usedR > 0 && allBoardCardsPresent(boardCards, setsR);
-
-    let bestSets;
-    if      (validG && validR) bestSets = usedG >= usedR ? setsG : setsR;
-    else if (validG)           bestSets = setsG;
-    else if (validR)           bestSets = setsR;
-    else                       bestSets = [];   // can't play → draw
-
-    return { sets: bestSets, remainingHand: computeRemainingHand(hand, boardCards, bestSets) };
+// ─── Main entry point ─────────────────────────────────────────────────────────
+// The valid pass that removes the most points from the hand (on a tie: more tiles,
+// then the earlier pass — the original order, preferring groups, comes first).
+export function matrixGreedyFindSets(hand, boardCards) {
+    let best = null;
+    for (const p of allPasses(hand, boardCards)) {
+        if (!p.valid) continue;
+        if (!best || p.points > best.points || (p.points === best.points && p.handTilesUsed > best.handTilesUsed))
+            best = p;
+    }
+    if (!best) return { sets: [], remainingHand: computeRemainingHand(hand, boardCards, []), chosen: null };   // can't play → draw
+    return { sets: best.sets, remainingHand: best.remainingHand,
+             chosen: { preference: best.preference, colors: best.colors, points: best.points } };
 }
 
 // ─── Verify no board card was removed ────────────────────────────────────────
@@ -316,18 +339,19 @@ export function fitMoveOnBoard(hand, boardCards, sets, rows, cols) {
     };
 }
 
-// ─── For ?debug: what each of the algorithm's two passes found ───────────────
+// ─── For ?debug: what the algorithm's passes found ───────────────────────────
+// { total, valid, best (the chosen pass or null), originalPasses (the two passes with
+// the original color order, to show why nothing was valid) }
 export function explainPasses(hand, boardCards) {
-    const all = [...boardCards, ...hand];
-    return ['group', 'run'].map(preference => {
-        const sets = runOnePass(all, preference);
-        return {
-            preference,
-            sets,
-            handTilesUsed:   countHandUsed(hand, boardCards, sets),
-            keepsBoardTiles: allBoardCardsPresent(boardCards, sets),
-        };
-    });
+    const passes = allPasses(hand, boardCards);
+    const valid = passes.filter(p => p.valid);
+    const best = matrixGreedyFindSets(hand, boardCards).chosen;
+    return {
+        total: passes.length,
+        valid: valid.length,
+        best: best && valid.find(p => p.preference === best.preference && p.colors === best.colors),
+        originalPasses: passes.filter(p => p.colors === COLOR_ORDERS[0]),
+    };
 }
 
 // ═══ Jokers ═══════════════════════════════════════════════════════════════════

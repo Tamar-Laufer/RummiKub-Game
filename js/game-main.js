@@ -46,19 +46,36 @@ const setsText = sets => sets.length ? sets.map(s => `[${s.map(tileText).join(' 
 function logComputerDecision(d) {
     console.group(`[debug] Computer ${d.result}: ${d.reason}`);
     console.log(`Hand (${d.hand.length}):`, d.hand.map(tileText).join(' '));
+    const hand = d.hand.filter(t => t[0] !== 'joker');
     if (d.phase === 'first-meld') {
         console.log('Before its first meld: the AI looks only at its hand.');
+        logPasses(explainPasses(hand, []));
         console.log('Sets it found:', setsText(d.found), `→ ${d.points} points (needs 30)`);
     } else {
-        console.log('After its first meld: the AI rebuilds the board from board tiles + hand.');
+        console.log('After its first meld: option 1 = rebuild the board from board tiles + hand, ' +
+                    'option 2 = sets from the hand only, next to the others. The one that removes more points wins.');
         if (d.locked.length) console.log('Locked sets (with a joker):', setsText(d.locked));
-        for (const p of explainPasses(d.hand.filter(t => t[0] !== 'joker'), d.freeBoardCards))
-            console.log(`Pass preferring ${p.preference}s:`, setsText(p.sets),
-                        `| hand tiles used: ${p.handTilesUsed} | keeps every board tile: ${p.keepsBoardTiles}`);
-        if (d.jokerSets.length) console.log('Sets with a joker from its hand:', setsText(d.jokerSets));
+        console.log('Option 1 (rebuild):');
+        logPasses(explainPasses(hand, d.freeBoardCards));
+        if (d.jokerSets.length) console.log('  sets with a joker from its hand:', setsText(d.jokerSets));
+        console.log(`  → removes ${d.options.rebuild} points`);
+        console.log('Option 2 (hand only):', setsText(d.handOnlySets), `→ removes ${d.options.handOnly} points`);
     }
     console.log('Played:', setsText(d.played));
     console.groupEnd();
+}
+
+function logPasses(x) {
+    const order = colors => colors.map(c => c[0].toUpperCase()).join('');
+    console.log(`  algorithm: ${x.total} passes (2 preferences × 24 color orders), ${x.valid} valid`);
+    if (x.best) {
+        console.log(`  best: prefers ${x.best.preference}s, color order ${order(x.best.colors)}:`,
+                    setsText(x.best.sets), `(removes ${x.best.points} points)`);
+    } else {
+        for (const p of x.originalPasses)
+            console.log(`  pass preferring ${p.preference}s (order RKBO):`, setsText(p.sets),
+                        `| hand tiles used: ${p.handTilesUsed} | keeps every board tile: ${p.keepsBoardTiles}`);
+    }
 }
 
 // ─── Show win / lose screen ───────────────────────────────────────────────────

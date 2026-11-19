@@ -199,9 +199,11 @@ function findSpace(board, len) {
     return null;
 }
 
-function botMove(state, hasOpened) {
-    const sets = findHandSets(state.playerCards);
-    const board = state.gameBoard.map(row => [...row]);   // plan on a copy first
+// Sets from the hand that fit into free space on the board, and their value.
+// Used by the bot for its own move, and to check the computer (independently of ai.js).
+function planHandSets(hand, gameBoard) {
+    const sets = findHandSets(hand);
+    const board = gameBoard.map(row => [...row]);          // plan on a copy
     const placements = [];
     for (const set of sets) {
         const pos = findSpace(board, set.length);
@@ -209,8 +211,15 @@ function botMove(state, hasOpened) {
         set.forEach((t, i) => { board[pos.r][pos.c + i] = t; });
         placements.push({ set, ...pos });
     }
-    const noRoom = placements.length < sets.length;
-    const value = placements.reduce((sum, p) => sum + setValue(p.set), 0);
+    return {
+        placements,
+        noRoom: placements.length < sets.length,
+        value: placements.reduce((sum, p) => sum + setValue(p.set), 0),
+    };
+}
+
+function botMove(state, hasOpened) {
+    const { placements, noRoom, value } = planHandSets(state.playerCards, state.gameBoard);
     if (placements.length === 0 || (!hasOpened && value < 30)) return { placed: 0, noRoom };
 
     // Same effect as dragging each tile from the tray to the board
@@ -302,7 +311,7 @@ function playGame(seed, opts, heartbeat) {
     const problems = {};   // type → { count, turns, first }
     const stats = { aiCalls: 0, aiMsTotal: 0, aiMsMax: 0, botPlays: 0, botDraws: 0, botPasses: 0, botNoRoom: 0,
                     computerPlays: 0, computerDraws: 0, computerPasses: 0,
-                    botJokersPlayed: 0, computerJokersPlayed: 0 };
+                    botJokersPlayed: 0, computerJokersPlayed: 0, computerMissedPlays: 0, missedExample: null };
     const jokersIn = tiles => tiles.filter(isJ).length;
 
     const finish = (outcome, turns, message = null) =>
@@ -354,6 +363,9 @@ function playGame(seed, opts, heartbeat) {
                     'turn never passes. The game has no ending for this case.');
         } else {
             const handBefore = state.computerCards.length, deckBefore = state.remainingDeck.length;
+            // Independent check (the bot's own set finder, not ai.js): could the computer play from its hand?
+            const couldPlay = planHandSets(state.computerCards, state.gameBoard);
+            const couldPlayText = couldPlay.placements.map(p => `[${showTiles(p.set)}]=${setValue(p.set)}`).join(' ');
             const t0 = performance.now();
             applyComputerMove(state, boardCardsOf(state.gameBoard));
             const ms = performance.now() - t0;
@@ -364,6 +376,16 @@ function playGame(seed, opts, heartbeat) {
             if (state.computerCards.length < handBefore) stats.computerPlays++;
             else if (state.remainingDeck.length < deckBefore) stats.computerDraws++;
             else stats.computerPasses++;
+            if (state.computerCards.length >= handBefore && couldPlay.placements.length > 0) {
+                if (!opened.computer && couldPlay.value >= 30)
+                    report('computer-missed-opening',
+                        `the computer drew/passed with ${handBefore} tiles, but its hand has sets worth ${couldPlay.value}: ${couldPlayText}`);
+                else if (opened.computer) {
+                    // not a rule violation: recorded as a sign of a weak AI decision
+                    stats.computerMissedPlays++;
+                    stats.missedExample ??= { turn, hand: `${handBefore} tiles: ${showTiles(before.computerCards)}`, sets: couldPlayText };
+                }
+            }
             outcome = finishComputerTurn(state);
         }
 
@@ -481,6 +503,7 @@ const PROBLEMS = {
     'ai-slow':                  'AI took longer than --slow-ms',
     'bot-move-rejected':        "Game rejected the bot's (valid) move",
     'wrong-game-over':          'Blocked game ended wrongly (deck not empty / wrong winner)',
+    'computer-missed-opening':  'Computer drew although its hand had sets worth 30+',
 };
 
 // Outcomes where the game reached a proper end
@@ -533,6 +556,14 @@ function printReport(opts, results, ms) {
                 `by the computer ${sum('computerJokersPlayed')} (in ${played.filter(r => r.stats.computerJokersPlayed).length} games)`);
     console.log(`  bot turns: played ${sum('botPlays')}, drew ${sum('botDraws')}, passed (deck empty) ${sum('botPasses')}, ` +
                 `had a set but no room on the board ${sum('botNoRoom')}`);
+
+    const missed = played.filter(r => r.stats.computerMissedPlays > 0);
+    console.log('\nAI MISSED PLAYS AFTER ITS FIRST MELD (not a rule violation)');
+    console.log(`  computer drew although its hand had a set that fits: ${sum('computerMissedPlays')} turns in ${missed.length} games`);
+    if (missed.length) {
+        const r = missed[0], e = r.stats.missedExample;
+        console.log(`  example: seed ${r.seed}, turn ${e.turn}, hand ${e.hand}\n           sets in the hand: ${e.sets}`);
+    }
 
     console.log('\nEXAMPLES (first game with each problem' + (opts.verbose ? ', then every game' : '; --verbose lists every game') + ')');
     for (const key of Object.keys(OUTCOMES).filter(k => !endedNormally(k))) {
