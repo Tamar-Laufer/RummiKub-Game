@@ -1,14 +1,12 @@
 // ─── Entry point: connects the game logic to the page ───────────────────────
-// Turn decisions live in game-logic.js; this file does only DOM, timing and the server call.
+// Turn decisions live in game-logic.js; this file does only DOM and timing.
 import {
     createGame, restoreState, boardCardsOf, handValue,
-    endPlayerTurn, playerDraw, applyServerMove, applyComputerMove, finishComputerTurn
+    endPlayerTurn, playerDraw, applyComputerMove, finishComputerTurn
 } from './game-logic.js';
 import { render } from './game-render.js';
 import { setupBoard, setupTrayDrop } from './game-board.js';
-import { updateTurnIndicator, updateCardCounts, showMessageBox, setServerStatus } from './game-ui.js';
-
-const PYTHON_SERVER = 'http://localhost:5000';
+import { updateTurnIndicator, updateCardCounts, showMessageBox } from './game-ui.js';
 
 // Test mode: open game.html?smallDeck and the deck starts with only 5 tiles
 const SMALL_DECK_SIZE = 5;
@@ -52,33 +50,13 @@ function showBlockedResult() {
 }
 
 function startComputerTurn() {
-    setTimeout(async () => await computerTurn(), 800);
+    setTimeout(computerTurn, 800);
 }
 
-// ─── Computer turn ────────────────────────────────────────────────────────────
-async function computerTurn() {
+// ─── Computer turn (the AI in ai.js) ──────────────────────────────────────────
+function computerTurn() {
     updateTurnIndicator(false);
-
-    const boardCards = boardCardsOf(state.gameBoard);
-
-    try {
-        // ── Python server (optional) ───────────────────────────────────────────
-        const res = await fetch(`${PYTHON_SERVER}/computer-turn`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ hand: state.computerCards, boardCards })
-        });
-        if (!res.ok) throw new Error('server error');
-
-        const data = await res.json();
-        applyServerMove(state, data, boardCards);
-        setServerStatus(true);
-
-    } catch {
-        // ── JS fallback (original algorithm) ──────────────────────────────────
-        setServerStatus(false);
-        applyComputerMove(state, boardCards);
-    }
+    applyComputerMove(state, boardCardsOf(state.gameBoard));
 
     const result = finishComputerTurn(state);
     if (result === 'computer-won') {

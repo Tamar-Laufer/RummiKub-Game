@@ -1,7 +1,7 @@
 // ─── Game state and turn logic (logic only, no DOM) ──────────────────────────
 import { shuffledDeck, drawCards } from './tiles.js';
 import { isBoardValid } from './rules.js';
-import { matrixGreedyFindSets, countHandUsed, allBoardCardsPresent, fitMoveOnBoard } from './ai.js';
+import { matrixGreedyFindSets, fitMoveOnBoard } from './ai.js';
 
 export const BOARD_ROWS = 5;
 export const BOARD_COLS = 22;
@@ -124,21 +124,7 @@ function endIfBlocked(state) {
     return true;
 }
 
-// ─── Apply the Python server's answer ─────────────────────────────────────────
-// boardCards = the board cards that were sent to the server
-export function applyServerMove(state, data, boardCards) {
-    const handPlayed = countHandUsed(state.computerCards, boardCards, data.sets || []);
-
-    if (data.sets.length > 0 && handPlayed > 0 && allBoardCardsPresent(boardCards, data.sets)) {
-        state.gameBoard     = data.board.map(row => row.map(cell => cell || null));
-        state.computerCards = data.remainingHand;
-        state.passesInRow   = 0;
-    } else {
-        drawOneCard(state);
-    }
-}
-
-// ─── Computer move with the JS algorithm (original) ──────────────────────────
+// ─── Computer move (the AI in ai.js) ─────────────────────────────────────────
 export function applyComputerMove(state, boardCards) {
     const result = matrixGreedyFindSets(state.computerCards, boardCards);
     // Safety net: only the part of the move that fits on the board (null = nothing fits)

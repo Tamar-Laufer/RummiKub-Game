@@ -63,18 +63,3 @@ export function showMessageBox(text, yesLabel, noLabel, onYes, onNo) {
 
     overlay.classList.add('show');
 }
-
-// ─── Server status indicator ──────────────────────────────────────────────────
-export function setServerStatus(online) {
-    let el = document.getElementById('server-status');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'server-status';
-        el.style.cssText =
-            'position:fixed;bottom:10px;right:14px;font-size:11px;' +
-            'padding:3px 9px;border-radius:10px;color:#fff;z-index:9999;opacity:0.75';
-        document.body.appendChild(el);
-    }
-    el.textContent = online ? '🐍 Python' : '⚡ JS';
-    el.style.background = online ? '#2a6' : '#444';
-}
