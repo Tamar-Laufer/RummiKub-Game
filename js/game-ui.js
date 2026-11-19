@@ -31,6 +31,21 @@ export function updateTurnIndicator(isPlayer) {
     turnIcon.style.animation = '';
 }
 
+// ─── Status text in the turn banner (during the computer's turn) ────────────
+export function setTurnStatus(text) {
+    document.getElementById('turn-text').textContent = text;
+}
+
+// ─── Lock / unlock the player's input (tiles and buttons) ────────────────────
+// Locked during the computer's turn: tiles cannot be dragged, buttons are disabled.
+export function setInputEnabled(enabled) {
+    document.body.classList.toggle('input-locked', !enabled);
+    for (const id of ['addCard', 'finishTurn']) {
+        const button = document.getElementById(id);
+        if (button) button.disabled = !enabled;
+    }
+}
+
 // ─── Card counts ─────────────────────────────────────────────────────────────
 export function updateCardCounts(state) {
     const hc = document.getElementById('human-count');

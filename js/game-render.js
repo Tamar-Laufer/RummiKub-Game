@@ -47,14 +47,20 @@ function createCardEl(card, id) {
 }
 
 // ─── Render board ─────────────────────────────────────────────────────────────
-function renderBoard(state) {
+// view (optional, for showing the computer's move): sets of "row-col" cells
+//   hidden:      not shown yet
+//   highlighted: shown with the "new tile" highlight
+function renderBoard(state, view = {}) {
     for (let r = 0; r < BOARD_ROWS; r++) {
         for (let c = 0; c < BOARD_COLS; c++) {
             const cell = document.getElementById(`cell-${r}-${c}`);
             if (!cell) continue;
             cell.innerHTML = '';
-            if (state.gameBoard[r][c])
-                cell.appendChild(createCardEl(state.gameBoard[r][c], `bc-${r}-${c}`));
+            const tile = state.gameBoard[r][c];
+            if (!tile || view.hidden?.has(`${r}-${c}`)) continue;
+            const el = createCardEl(tile, `bc-${r}-${c}`);
+            if (view.highlighted?.has(`${r}-${c}`)) el.classList.add('card-new');
+            cell.appendChild(el);
         }
     }
 }
@@ -69,8 +75,8 @@ function renderTray(state) {
     );
 }
 
-export function render(state) {
-    renderBoard(state);
+export function render(state, view = {}) {
+    renderBoard(state, view);
     renderTray(state);
     updateCardCounts(state);
 }

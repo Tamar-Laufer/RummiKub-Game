@@ -6,7 +6,16 @@ import {
 } from './game-logic.js';
 import { render } from './game-render.js';
 import { setupBoard, setupTrayDrop } from './game-board.js';
-import { updateTurnIndicator, updateCardCounts, showMessageBox } from './game-ui.js';
+import { updateTurnIndicator, updateCardCounts, showMessageBox, setTurnStatus, setInputEnabled } from './game-ui.js';
+
+// ─── Computer turn timing (milliseconds) — change freely ─────────────────────
+// Only the display waits; the game logic (and the tests / bot) do not.
+const THINKING_DELAY_MS   = 1000;   // "Computer is thinking..." before it plays
+const SET_REVEAL_DELAY_MS = 600;    // between the computer's new sets appearing on the board
+const AFTER_MOVE_DELAY_MS = 1500;   // its new tiles stay highlighted this long, then your turn starts
+const MESSAGE_DELAY_MS    = 1500;   // how long "Computer drew a tile" / "... passes" is shown
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Test modes (can be combined, e.g. game.html?smallDeck&jokers):
 //   ?smallDeck  the deck starts with only 5 tiles
@@ -52,29 +61,97 @@ function showBlockedResult() {
 }
 
 function startComputerTurn() {
-    setTimeout(computerTurn, 800);
+    computerTurn();
 }
 
 // ─── Computer turn (the AI in ai.js) ──────────────────────────────────────────
-function computerTurn() {
+// The move itself is applied at once (applyComputerMove); only the display is slowed
+// down so the player can follow it. Input stays locked until the player's turn.
+async function computerTurn() {
+    setInputEnabled(false);
     updateTurnIndicator(false);
+    setTurnStatus('Computer is thinking...');
+    await wait(THINKING_DELAY_MS);
+
+    const before = {
+        board: state.gameBoard.map(row => [...row]),
+        hand:  state.computerCards.length,
+        deck:  state.remainingDeck.length,
+    };
     applyComputerMove(state, boardCardsOf(state.gameBoard));
 
-    const result = finishComputerTurn(state);
-    if (result === 'computer-won') {
+    const played = before.hand - state.computerCards.length;
+    if (played > 0) {
+        await showComputerSets(before.board, played);
+    } else {
         render(state);
-        setTimeout(() => showEndScreen(false), 400);
-        return;
-    }
-    if (result === 'game-over') {
-        render(state);
-        showBlockedGameEnd();
-        return;
+        setTurnStatus(state.remainingDeck.length < before.deck
+            ? 'Computer drew a tile'
+            : 'Computer passes — the deck is empty');
+        await wait(MESSAGE_DELAY_MS);
     }
 
-    render(state);
-    updateCardCounts(state);
+    const result = finishComputerTurn(state);
+    render(state);                                    // also removes the highlight
+    if (result === 'computer-won') { showEndScreen(false); return; }
+    if (result === 'game-over')    { showBlockedGameEnd(); return; }
+
     updateTurnIndicator(true);
+    setInputEnabled(true);
+}
+
+// The computer's new tiles appear set by set, highlighted
+async function showComputerSets(beforeBoard, played) {
+    const groups = newTileGroups(beforeBoard, state.gameBoard);
+    const hidden = new Set(groups.flat());
+    const highlighted = new Set();
+    setTurnStatus(`Computer played ${played} tile${played === 1 ? '' : 's'}`);
+    render(state, { hidden, highlighted });
+    for (const group of groups) {
+        await wait(SET_REVEAL_DELAY_MS);
+        for (const cell of group) { hidden.delete(cell); highlighted.add(cell); }
+        render(state, { hidden, highlighted });
+    }
+    await wait(AFTER_MOVE_DELAY_MS);
+}
+
+// Board cells ("row-col") that hold tiles the computer just added, grouped by set
+// (left to right, top to bottom). The AI may rearrange the board, so tiles are
+// matched by color+number: a tile counts as old if the same tile was on the board
+// before (preferably in the same cell); the rest are new.
+function newTileGroups(before, after) {
+    const key = t => t.join('-');
+    const oldLeft = new Map();
+    for (const row of before) for (const t of row) if (t) oldLeft.set(key(t), (oldLeft.get(key(t)) || 0) + 1);
+
+    const takeOld = k => {
+        if (!(oldLeft.get(k) > 0)) return false;
+        oldLeft.set(k, oldLeft.get(k) - 1);
+        return true;
+    };
+    const status = after.map(row => row.map(() => null));          // 'old' | 'new'
+    // pass 1: a tile in the same cell as before is old
+    after.forEach((row, r) => row.forEach((t, c) => {
+        if (t && before[r][c] && key(before[r][c]) === key(t) && takeOld(key(t))) status[r][c] = 'old';
+    }));
+    // pass 2: the other tiles are old while such tiles were on the board, else new
+    after.forEach((row, r) => row.forEach((t, c) => {
+        if (t && !status[r][c]) status[r][c] = takeOld(key(t)) ? 'old' : 'new';
+    }));
+
+    const groups = [];
+    after.forEach((row, r) => {
+        let group = [];
+        for (let c = 0; c <= row.length; c++) {
+            if (c < row.length && row[c]) {                         // still inside a set
+                if (status[r][c] === 'new') group.push(`${r}-${c}`);
+                continue;
+            }
+            if (group.length) groups.push(group);                  // end of a set
+            group = [];
+        }
+    });
+    return groups;
 }
 
 // ─── End of player's turn ─────────────────────────────────────────────────────
@@ -153,6 +230,7 @@ function initGame() {
     render(state);
     updateTurnIndicator(true);
     updateCardCounts(state);
+    setInputEnabled(true);
 }
 
 // ─── Event listeners ──────────────────────────────────────────────────────────
