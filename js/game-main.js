@@ -60,6 +60,7 @@ function logComputerDecision(d) {
         if (d.jokerSets.length) console.log('  sets with a joker from its hand:', setsText(d.jokerSets));
         console.log(`  → removes ${d.options.rebuild} points`);
         console.log('Option 2 (hand only):', setsText(d.handOnlySets), `→ removes ${d.options.handOnly} points`);
+        console.log('Then small moves (add to an edge / borrow a tile):', setsText(d.localSets));
     }
     console.log('Played:', setsText(d.played));
     console.groupEnd();

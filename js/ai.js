@@ -3,7 +3,7 @@
 // net for the board size, and the joker pass (the original algorithm works on a
 // 4×13 matrix and does not know jokers, so they are handled around it).
 import { COLORS } from './tiles.js';
-import { isJoker, isValidSet, setPoints } from './rules.js';
+import { isJoker, isValidSet, setPoints, segmentsOf, isBoardValid } from './rules.js';
 
 // ─── Based exactly on the original algorithm — 3 bugs fixed ──────────────────
 //
@@ -350,6 +350,97 @@ export function fitMoveOnBoard(hand, boardCards, sets, rows, cols) {
         board: placeSetsOnBoard(kept, rows, cols),
         remainingHand: computeRemainingHand(hand, boardCards, kept),
     };
+}
+
+// ─── First free space for a set of `len` tiles ───────────────────────────────
+// An empty cell (or the edge) on both sides, so it does not join an existing set.
+export function findFreeSpace(board, len) {
+    for (let r = 0; r < board.length; r++)
+        for (let c = 0; c + len <= board[r].length; c++)
+            if (fitsAt(board, r, c, len)) return { r, c };
+    return null;
+}
+
+function fitsAt(board, r, c, len) {
+    const cols = board[r].length;
+    if (c < 0 || c + len > cols) return false;
+    if ((c > 0 && board[r][c - 1]) || (c + len < cols && board[r][c + len])) return false;
+    for (let i = 0; i < len; i++) if (board[r][c + i]) return false;
+    return true;
+}
+
+// ═══ Small local moves (after the algorithm) ══════════════════════════════════
+// The algorithm rebuilds the whole board at once. On a big board that can fail, and
+// sets with a joker are locked for it. This step does not rebuild: it makes small
+// moves on the board as it is, and repeats while it finds one:
+//   1. Add to an edge: a hand tile at the start or the end of a set (a run, or the
+//      4th tile of a group). Sets with a joker too.
+//   2. Borrow: two hand tiles that miss one tile to be a set take it from a set on the
+//      board, only if what is left is still a valid set (so: the edge of a run of 4+,
+//      or any tile of a group of 4).
+// Each time it plays the option that removes the most points from the hand.
+// Jokers in the hand are not used here (findSetsWithJokers decides about them).
+// Returns { board, remainingHand, sets: the sets it changed or made }.
+export function playLocalMoves(board, hand) {
+    let current = board.map(row => [...row]);
+    const rest = [...hand];
+    const sets = [];
+    for (let move = bestLocalMove(current, rest); move; move = bestLocalMove(current, rest)) {
+        current = move.board;
+        for (const t of move.used) rest.splice(rest.indexOf(t), 1);
+        sets.push(...move.sets);
+    }
+    return { board: current, remainingHand: rest, sets };
+}
+
+function bestLocalMove(board, hand) {
+    const real = [];   // one tile of each kind (two equal tiles give the same moves)
+    for (const t of hand)
+        if (!isJoker(t) && !real.some(x => x[0] === t[0] && x[1] === t[1])) real.push(t);
+    let best = null;
+    const consider = (used, changes) => {
+        const points = used.reduce((sum, t) => sum + t[1], 0);
+        if (best && points <= best.points) return;
+        const next = applyChanges(board, changes);
+        if (next) best = { points, used, board: next, sets: changes.map(ch => ch.tiles) };
+    };
+
+    const segments = segmentsOf(board);
+    // 1. Add to an edge
+    for (const seg of segments)
+        for (const t of real) {
+            if (isValidSet([t, ...seg.tiles])) consider([t], [{ seg, tiles: [t, ...seg.tiles], start: seg.col - 1 }]);
+            if (isValidSet([...seg.tiles, t])) consider([t], [{ seg, tiles: [...seg.tiles, t], start: seg.col }]);
+        }
+    // 2. Borrow a tile for a pair from the hand
+    for (let i = 0; i < real.length; i++)
+        for (let j = i + 1; j < real.length; j++)
+            for (const seg of segments)
+                seg.tiles.forEach((tile, k) => {
+                    if (isJoker(tile)) return;
+                    const left = seg.tiles.filter((_, x) => x !== k);
+                    const made = [real[i], real[j], tile].sort((a, b) => a[1] - b[1]);
+                    if (!isValidSet(left) || !isValidSet(made)) return;
+                    consider([real[i], real[j]],
+                             [{ seg, tiles: left, start: k === 0 ? seg.col + 1 : seg.col }, { tiles: made }]);
+                });
+    return best;
+}
+
+// The board after the changes: each changed set is taken off and put back where it
+// was (start), or into free space if it no longer fits there; new sets go into free
+// space. null if something has no room.
+function applyChanges(board, changes) {
+    const out = board.map(row => [...row]);
+    for (const { seg } of changes)
+        if (seg) seg.tiles.forEach((_, i) => { out[seg.row][seg.col + i] = null; });
+    for (const { seg, tiles, start } of changes) {
+        const pos = seg && fitsAt(out, seg.row, start, tiles.length) ? { r: seg.row, c: start }
+                                                                     : findFreeSpace(out, tiles.length);
+        if (!pos) return null;
+        tiles.forEach((t, i) => { out[pos.r][pos.c + i] = t; });
+    }
+    return isBoardValid(out) ? out : null;
 }
 
 // ─── For ?debug: what the algorithm's passes found ───────────────────────────

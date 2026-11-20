@@ -70,12 +70,13 @@ test('opening: with a joker but still under 30, the computer draws', () => {
     assert.equal(state.computerCards.length, 5, 'drew one tile');
 });
 
-test('a set with a joker on the board stays locked; the rest is still played', () => {
+// The rebuild keeps a joker set locked; the small moves after it can still add to its edge
+// (before, R7 stayed in the hand: see ai-local-moves.test.js)
+test('a set with a joker on the board: the rest is played, and a hand tile is added to its edge', () => {
     const state = computerTurn('R7 K9 B9 O9', [[0, 0, 'R4 J R6']]);
-    assert.ok(boardSets(state).includes('R4 J R6'), 'the joker set is unchanged');
-    assert.ok(boardSets(state).includes('K9 B9 O9') || boardSets(state).includes('B9 K9 O9') ||
-              boardSets(state).some(s => s.split(' ').sort().join(' ') === 'B9 K9 O9'), 'the 9s were played');
-    assert.ok(hand(state).includes('R7'), 'R7 was not added to the locked joker set');
+    assert.ok(boardSets(state).includes('R4 J R6 R7'), 'R7 was added to the joker set');
+    assert.ok(boardSets(state).some(s => s.split(' ').sort().join(' ') === 'B9 K9 O9'), 'the 9s were played');
+    assert.equal(hand(state), '');
 });
 
 test('a joker set on the board does not stop the computer from rearranging the rest', () => {

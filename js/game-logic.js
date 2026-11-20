@@ -1,7 +1,7 @@
 // ─── Game state and turn logic (logic only, no DOM) ──────────────────────────
 import { shuffledDeck, drawCards, JOKERS } from './tiles.js';
-import { findInvalidSet, isJoker, setPoints } from './rules.js';
-import { findSetsWithJokers, fitMoveOnBoard, computeRemainingHand } from './ai.js';
+import { findInvalidSet, isJoker, setPoints, segmentsOf } from './rules.js';
+import { findSetsWithJokers, fitMoveOnBoard, computeRemainingHand, findFreeSpace, playLocalMoves } from './ai.js';
 
 // 7 rows: measured with the bot, the AI never needs more (even with all 104 tiles on
 // the board). Must match grid-template-rows in css/game.css.
@@ -97,24 +97,7 @@ export function boardCardsOf(board) {
 // must be worth at least 30 points.
 export const OPENING_POINTS = 30;
 
-// Sets on the board = row segments of adjacent tiles (same rule as isBoardValid)
-function segmentsOf(board) {
-    const segments = [];
-    board.forEach((row, r) => {
-        let cur = null;
-        for (let c = 0; c <= row.length; c++) {
-            const tile = c < row.length ? row[c] : null;
-            if (tile) {
-                if (!cur) cur = { row: r, col: c, tiles: [] };
-                cur.tiles.push(tile);
-            } else if (cur) {
-                segments.push(cur);
-                cur = null;
-            }
-        }
-    });
-    return segments;
-}
+// Sets on the board: segmentsOf (rules.js)
 const segmentKey = s => `${s.row}:${s.col}:` + s.tiles.map(t => t.join('')).join(',');
 
 // Did any set from the start of the turn change, move or disappear?
@@ -280,14 +263,33 @@ function fullMove(state, boardCards) {
     const report = { phase: 'after-first-meld', locked, freeBoardCards, boardSets, jokerSets,
                      handOnlySets: handOnly ? handOnly.sets : [], options };
 
+    let decision;
     if (!rebuild && !handOnly)
-        return { ...report, move: null, reason: 'no set it can play: no rebuild keeps every board tile, and no set in its hand fits' };
-    if (options.handOnly > options.rebuild)
-        return { ...report, move: handOnly, chose: 'hand-only',
-                 reason: `put sets from its hand next to the others (removes ${options.handOnly} points` +
-                         (rebuild ? `; rebuilding would remove ${options.rebuild})` : '; no rebuild keeps every board tile)') };
-    return { ...report, move: rebuild, chose: 'rebuild',
-             reason: `rebuilt the board (removes ${options.rebuild} points; hand only would remove ${options.handOnly})` };
+        decision = { ...report, move: null, reason: 'no set it can play: no rebuild keeps every board tile, and no set in its hand fits' };
+    else if (options.handOnly > options.rebuild)
+        decision = { ...report, move: handOnly, chose: 'hand-only',
+                     reason: `put sets from its hand next to the others (removes ${options.handOnly} points` +
+                             (rebuild ? `; rebuilding would remove ${options.rebuild})` : '; no rebuild keeps every board tile)') };
+    else
+        decision = { ...report, move: rebuild, chose: 'rebuild',
+                     reason: `rebuilt the board (removes ${options.rebuild} points; hand only would remove ${options.handOnly})` };
+    return withLocalMoves(state, decision);
+}
+
+// After the chosen option: small moves on the board as it is (playLocalMoves in ai.js):
+// add a hand tile to the edge of a set, or borrow an edge tile for a pair from the hand.
+function withLocalMoves(state, decision) {
+    const { move } = decision;
+    const local = playLocalMoves(move ? move.board : state.gameBoard, move ? move.remainingHand : state.computerCards);
+    if (local.sets.length === 0) return { ...decision, localSets: [] };
+    const points = handValue(move ? move.remainingHand : state.computerCards) - handValue(local.remainingHand);
+    return {
+        ...decision,
+        localSets: local.sets,
+        move: { sets: [...(move ? move.sets : []), ...local.sets], board: local.board, remainingHand: local.remainingHand },
+        reason: (move ? decision.reason + ', then' : 'no full set to play, but') +
+                ` small moves on the board (add to an edge / borrow a tile) removed ${points} more points`,
+    };
 }
 
 // Before the first meld: the same AI, but it sees only its own hand (so it cannot
@@ -329,18 +331,6 @@ function addSetsInFreeSpace(board, sets) {
         placedSets.push(set);
     }
     return { board: out, sets: placedSets };
-}
-
-function findFreeSpace(board, len) {
-    for (let r = 0; r < board.length; r++) {
-        const cols = board[r].length;
-        for (let c = 0; c + len <= cols; c++) {
-            let ok = (c === 0 || !board[r][c - 1]) && (c + len === cols || !board[r][c + len]);
-            for (let i = 0; ok && i < len; i++) if (board[r][c + i]) ok = false;
-            if (ok) return { r, c };
-        }
-    }
-    return null;
 }
 
 // ─── After the computer moved ────────────────────────────────────────────────

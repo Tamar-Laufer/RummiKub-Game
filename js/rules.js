@@ -87,6 +87,26 @@ export function findInvalidSet(board) {
     return null;
 }
 
+// Sets on the board = row segments of adjacent tiles (same rule as findInvalidSet):
+// [{ row, col (of the first tile), tiles }]
+export function segmentsOf(board) {
+    const segments = [];
+    board.forEach((row, r) => {
+        let cur = null;
+        for (let c = 0; c <= row.length; c++) {
+            const tile = c < row.length ? row[c] : null;
+            if (tile) {
+                if (!cur) cur = { row: r, col: c, tiles: [] };
+                cur.tiles.push(tile);
+            } else if (cur) {
+                segments.push(cur);
+                cur = null;
+            }
+        }
+    });
+    return segments;
+}
+
 export function isBoardValid(board) {
     return findInvalidSet(board) === null;
 }
